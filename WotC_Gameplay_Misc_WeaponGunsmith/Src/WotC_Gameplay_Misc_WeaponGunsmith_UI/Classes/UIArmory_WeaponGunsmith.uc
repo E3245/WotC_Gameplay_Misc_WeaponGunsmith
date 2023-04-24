@@ -30,10 +30,12 @@ var bool 								bFilteringDisabled;
 var bool								bWeaponUpgradesInfluenceParts;
 var bool								bMuzzleUnlocked;
 
-var int								LastClickedIndex;
+var int									LastClickedIndex;
 var byte								ModeSpinnerValue;
-var int								WeaponCategorySpinnerIndex;
+var int									WeaponCategorySpinnerIndex;
 var bool								bReceiverValidationCheck;	// If not set, receivers need re-evaluation.
+
+var X2ConfigWeaponPartTemplate			SelectedReceiverTemplate;
 
 // List of all possible weapon parts for each category
 var array<PartFilteringCriteria> 	arrWeaponPart_Receiver;
@@ -275,8 +277,11 @@ simulated function SetWeaponReference(StateObjectReference NewWeaponRef)
 	CreateWeaponPawn(Weapon);
 	DefaultWeaponRotation = ActorPawn.Rotation;
 
+	// Set Receiver Template
+	SelectedReceiverTemplate = CurrentGunsmithState.GetPartTemplate(PT_RECEIVER);
+
 	// Re-evaluate unlocked weapon categories
-	CreateValidPartCategory(CurrentGunsmithState.GetPartTemplate(PT_RECEIVER));
+	CreateValidPartCategory(SelectedReceiverTemplate);
 	WeaponCategoryControl.UpdateValidCategory(ValidPartCategoryFlag);
 
 	// If we end up in an invalid category, boot the player back to the Receiver part category
@@ -392,7 +397,7 @@ simulated function UpdateSlots()
 		SlotsList.Scrollbar.Show();
 	}
 
-	SetSlotsListTitle(GetCategoryLabelString(SelectedPart));
+	SetSlotsListTitle(GetCategoryLabelString(SelectedPart, SelectedReceiverTemplate));
 
 	`XEVENTMGR.TriggerEvent('UIArmory_WeaponGunsmith_SlotsUpdated', SlotsList, self, none);
 }
@@ -506,7 +511,10 @@ simulated function OnItemClicked(UIList ContainerList, int ItemIndex)
 		{
 			// Equipping Receivers can change what is customizable
 			if (SelectedPart == PT_RECEIVER)
-				CreateValidPartCategory(PartTemplate);
+			{
+				SelectedReceiverTemplate = PartTemplate;
+				CreateValidPartCategory(SelectedReceiverTemplate);
+			}
 
 			if (bMuzzleUnlocked)
 			{
@@ -594,7 +602,7 @@ simulated function UpdateCustomization(UIPanel DummyParam)
 	// WEAPON CATEGORY
 	//-----------------------------------------------------------------------------------------
 	WeaponCategorySpinnerIndex = i;
-	GetCustomizeItem(i++).UpdateDataSpinner("", GetCategoryLabelString(SelectedPart), OnSpinnerCategoryChanged);
+	GetCustomizeItem(i++).UpdateDataSpinner("", GetCategoryLabelString(SelectedPart, SelectedReceiverTemplate), OnSpinnerCategoryChanged);
 
 	// RESET WEAPON CUSTOMIZATION
 	// Resets weapon to first valid parts on the weapon template
@@ -650,6 +658,9 @@ function ConfirmResetWeaponCustomizationCallback(Name eAction)
 	// Swap back to Receiver category
 	SwitchWeaponCategory(PT_RECEIVER, true);
 
+	// Reset Selected Receiver
+	SelectedReceiverTemplate = CurrentGunsmithState.GetPartTemplate(PT_RECEIVER);
+
 	// Force a refresh
 	PreviewUpgrade(SlotsList, 0);
 
@@ -684,7 +695,7 @@ function OnSpinnerCategoryChanged(UIListItemSpinner SpinnerControl, int Directio
 
 	Movie.Pres.PlayUISound(eSUISound_MenuSelect);
 
-	SpinnerControl.SetValue(GetCategoryLabelString(SelectedPart));
+	SpinnerControl.SetValue(GetCategoryLabelString(SelectedPart, SelectedReceiverTemplate));
 	WeaponCategoryControl.OnItemClicked(WeaponCategoryControl.PartsList, ModeSpinnerValue - 1);
 
 	// Force a refresh on the slots
@@ -712,7 +723,7 @@ function SwitchWeaponCategory(WeaponPartType NewPart, optional bool bForceChange
 
 	SelectedPart = NewPart;
 
-	Item.Spinner.SetValue(GetCategoryLabelString(SelectedPart));
+	Item.Spinner.SetValue(GetCategoryLabelString(SelectedPart, SelectedReceiverTemplate));
 
 	ModeSpinnerValue = int(SelectedPart);
 
@@ -1117,30 +1128,87 @@ function array<X2ConfigWeaponPartTemplate> GetSelectedWeaponParts_DEBUG()
 	return OutArray;
 }
 
-static function string GetCategoryLabelString(WeaponPartType Part)
+// V1.003: Check if the Receiver Template has special naming for this category
+static function string GetCategoryLabelString(WeaponPartType Part, optional X2ConfigWeaponPartTemplate ReceiverTemplate)
 {
+	local array<string> arrNewPartName;
+	local int MaxElements;
+
+	arrNewPartName.Length = 0;
+
+	// v1.003: Avoid Log spam if we access out of bounds array by explicitly checking for at least PT_MAX elements
+	if (Part != PT_RECEIVER && ReceiverTemplate != none)
+	{
+		if (ReceiverTemplate.m_strReceiverOverridePartCategoryName.Length >= PT_MAX)
+		{
+			arrNewPartName = ReceiverTemplate.m_strReceiverOverridePartCategoryName;
+		}
+		else if (ReceiverTemplate.m_strReceiverOverridePartCategoryName.Length > 0 && ReceiverTemplate.m_strReceiverOverridePartCategoryName.Length < PT_MAX)
+		{
+			MaxElements = PT_MAX;
+			`LOG("WARNING, Receiver Template " $ ReceiverTemplate.DataName $ " does not have all " $ MaxElements $ " elements localized!",, 'WotC_Gameplay_Misc_WeaponGunsmith_UI');
+		}
+	}
+
 	switch(Part)
 	{
 		case PT_RECEIVER:
-			return default.m_strWPNPartCategory_Receiver; break;
+			return default.m_strWPNPartCategory_Receiver; 
+			break;
 		case PT_BARREL:
-			return default.m_strWPNPartCategory_Barrel; break;
+			if (arrNewPartName.Length > 0 && arrNewPartName[PT_BARREL] != "")
+				return arrNewPartName[PT_BARREL];
+			else
+				return default.m_strWPNPartCategory_Barrel; 
+			break;
 		case PT_HANDGUARD:
-			return default.m_strWPNPartCategory_Handguard; break;
+			if (arrNewPartName.Length > 0 && arrNewPartName[PT_HANDGUARD] != "")
+				return arrNewPartName[PT_HANDGUARD];
+			else
+				return default.m_strWPNPartCategory_Handguard; 
+			break;
 		case PT_STOCK:
-			return default.m_strWPNPartCategory_Stock; break;
+			if (arrNewPartName.Length > 0 && arrNewPartName[PT_STOCK] != "")
+				return arrNewPartName[PT_STOCK];
+			else
+				return default.m_strWPNPartCategory_Stock; 
+			break;
 		case PT_MAGAZINE:
-			return default.m_strWPNPartCategory_Magazine; break;
+			if (arrNewPartName.Length > 0 && arrNewPartName[PT_MAGAZINE] != "")
+				return arrNewPartName[PT_MAGAZINE];
+			else
+				return default.m_strWPNPartCategory_Magazine; 
+			break;
 		case PT_REARGRIP:
-			return default.m_strWPNPartCategory_Reargrip; break;
+			if (arrNewPartName.Length > 0 && arrNewPartName[PT_REARGRIP] != "")
+				return arrNewPartName[PT_REARGRIP];
+			else
+				return default.m_strWPNPartCategory_Reargrip; 
+			break;
 		case PT_MUZZLE:
-			return default.m_strWPNPartCategory_Muzzle; break;
+			if (arrNewPartName.Length > 0 && arrNewPartName[PT_MUZZLE] != "")
+				return arrNewPartName[PT_MUZZLE];
+			else
+				return default.m_strWPNPartCategory_Muzzle; 
+			break;
 		case PT_UNDERBARREL:
-			return default.m_strWPNPartCategory_Underbarrel; break;
+			if (arrNewPartName.Length > 0 && arrNewPartName[PT_UNDERBARREL] != "")
+				return arrNewPartName[PT_UNDERBARREL];
+			else
+				return default.m_strWPNPartCategory_Underbarrel; 
+			break;
 		case PT_LASER:
-			return default.m_strWPNPartCategory_Laser; break;
+			if (arrNewPartName.Length > 0 && arrNewPartName[PT_LASER] != "")
+				return arrNewPartName[PT_LASER];
+			else
+				return default.m_strWPNPartCategory_Laser; 
+			break;
 		case PT_OPTIC:
-			return default.m_strWPNPartCategory_Optics; break;
+			if (arrNewPartName.Length > 0 && arrNewPartName[PT_OPTIC] != "")
+				return arrNewPartName[PT_OPTIC];
+			else
+				return default.m_strWPNPartCategory_Optics; 
+			break;
 		// Spit out error
 		case PT_NONE:
 		case PT_MAX:

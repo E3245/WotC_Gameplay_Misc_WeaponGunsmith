@@ -52,10 +52,10 @@ simulated function OnInit()
 	TitleText = Spawn(class'UIText', self).InitText('HeaderText', class'UIArmory_WeaponGunsmith'.default.m_PartSelectorTitle, true);
 	TitleText.SetPosition(5, 1);
 
-	RebuildMenuList();
+	BuildMenuList();
 }
 
-function RebuildMenuList()
+function BuildMenuList()
 {
 	local byte				i;
 	local UIListItemString	Item;
@@ -64,7 +64,7 @@ function RebuildMenuList()
 
 	for(i = PT_RECEIVER; i < PT_MAX; ++i)
 	{
-		Item = UIListItemString(PartsList.CreateItem(class'UIListItemString')).InitListItem(class'UIArmory_WeaponGunsmith'.static.GetCategoryLabelString(WeaponPartType(i)));
+		Item = UIListItemString(PartsList.CreateItem(class'UIListItemString')).InitListItem(class'UIArmory_WeaponGunsmith'.static.GetCategoryLabelString(WeaponPartType(i), UIArmory_WeaponGunsmith(Screen).SelectedReceiverTemplate));
 		Item.metadataInt = i;
 
 		if (ValidPartCategory[i] == false)
@@ -121,6 +121,9 @@ function UpdateValidCategory(array<bool> arrNewValidCategories)
 
 	for( i = 0 ; i < PartsList.ItemCount; ++i)
 	{
+		//Update names
+		UIListItemString(PartsList.GetItem(i)).SetText(class'UIArmory_WeaponGunsmith'.static.GetCategoryLabelString(WeaponPartType(i + 1), UIArmory_WeaponGunsmith(Screen).SelectedReceiverTemplate));
+
 		if (ValidPartCategory[i + 1] == false)
 		{
 			UIListItemString(PartsList.GetItem(i)).OnLoseFocus();	// Sometimes the bar stays highlighted when switching to a disabled state.

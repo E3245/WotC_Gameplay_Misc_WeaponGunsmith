@@ -52,6 +52,9 @@ var config bool						bActivateRifleGrip;				// Activates Rifle Grip animations i
 // Localized string must be last. Config values get ignored under localized strings
 var localized array<string>			m_strReceiverFriendlyName;		// Receivers can change the default friendly name of a weapon template 
 
+// V1.003: Certain receiver templates may change the name of categories. Must have WeaponPartType::PT_MAX Elements or it will not show up
+var localized array<string>			m_strReceiverOverridePartCategoryName;
+
 DefaultProperties
 {
 	ItemCat="weapon_part" // Make sure to not allow XCom to ever get these as valid items
