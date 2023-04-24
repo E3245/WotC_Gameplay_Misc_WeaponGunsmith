@@ -1,3 +1,4 @@
+![Weapon Gunsmith Framework](Preview/logo_wide_orange.png?raw=true)
 # Weapon Gunsmith Framework
 
 [Mod Link](https://steamcommunity.com/sharedfiles/filedetails/?id=2955558771)
