@@ -1,5 +1,7 @@
 ﻿[b]DO NOT SKIP THE REQUIRED ITEMS! THEY ARE NECESSARY!![/b]
 
+[h2][url=https://github.com/E3245/WotC_Gameplay_Misc_WeaponGunsmith/releases]Grab the Lastest release here![/url][/h2]
+
 [h1][b]War of the Chosen version![/b][/h1]
 
 Introducing Weapon Gunsmith, as seen in AAA titles such as Metro: Exodus, Fallout 4, Fallout 76, and Call of Duty: Modern Warfare I (2019) and II (2022). You can customize almost all aspects of your weapon, down to the receiver. This is a framework mod for modders that allows other mods to hook their custom weapons into Weapon Gunsmith as they see fit. This mod does nothing on its own.
@@ -31,6 +33,7 @@ If you are thinking of downvoting this mod, please provide feedback first, so I 
      [*]No custom Left Hand animations during Strategy, Shell, or any Matinees that play in Tactical. This is a really difficult problem that can't be easily solved without remaking 100s of animations.
      [*]Untested Rifle Grip support.
 	 [*]Weapons created with this mod cannot fully utilize Iridar's Weapon Skin Replacer or XSkin system. No way around this.
+	 [*]Upgrading weapons to Magnetic or Beam tiers do not carry over customization. v1.002 fixes this bug.
 [/list]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 [h1][b]COMPATIBILITY[/b][/h1]
