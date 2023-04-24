@@ -1,8 +1,8 @@
-# Weapon Gunsmith Framework
-
+![Weapon Gunsmith Framework](Preview/logo_wide_orange.png?raw=true)
+### A framework that allows customizing every aspect of a weapon, for [XCOM 2](https://store.steampowered.com/app/268500/XCOM_2/). 
 [Mod Link](https://steamcommunity.com/sharedfiles/filedetails/?id=2955558771)
 
-Introducing Weapon Gunsmith, as seen in AAA titles such as Metro: Exodus, Fallout 4, Fallout 76, and Call of Duty: Modern Warfare I (2019) and II (2022). You can customize almost all aspects of your weapon, down to the receiver. This is a framework mod for modders that allows other mods to hook their custom weapons into Weapon Gunsmith as they see fit. This mod does nothing on its own.
+Introducing Weapon Gunsmith, as seen in AAA titles such as Metro: Exodus, Fallout 4, Fallout 76, and Call of Duty: Modern Warfare I (2019) and II (2022), for XCOM 2. You can customize almost all aspects of your weapon, down to the receiver. This is a framework mod for modders that allows other mods to hook their custom weapons into Weapon Gunsmith as they see fit. This mod does nothing on its own.
 
 ## Installation
 1. Get the release from the "Releases" tab on the right 👉 (***GREEN BUTTON ON THE TOP OF THE REPO IS ONLY FOR THE SOURCE CODE***)
