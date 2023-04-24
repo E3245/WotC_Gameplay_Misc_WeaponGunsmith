@@ -1,0 +1,42 @@
+[UIArmory_WeaponGunsmith]
+
+m_strWPNPartCategory_Receiver = "RECEIVER"
+m_strWPNPartCategory_Barrel = "BARREL"
+m_strWPNPartCategory_Handguard = "HANDGUARD"
+m_strWPNPartCategory_Stock = "STOCK"
+m_strWPNPartCategory_Magazine = "MAGAZINE"
+
+m_strWPNPartCategory_Reargrip = "REARGRIP"
+m_strWPNPartCategory_Underbarrel = "UNDERBARREL"
+m_strWPNPartCategory_Laser = "LASER"
+m_strWPNPartCategory_Optics = "OPTICS"
+m_strWPNPartCategory_Muzzle = "MUZZLE"
+
+m_strError_BarrelPreventsMuzzles = "Barrel Prevents Muzzle Attachments";
+
+m_PartSelectorTitle	= "PART SELECTOR"
+
+m_strButton_SwapToWeaponGunsmith	= "SWAP TO WEAPON GUNSMITH"
+m_strButton_SwapToWeaponUpgrade		= "SWAP TO WEAPON UPGRADE"
+
+m_strSwitchPartCategoryNavHelp		= "SWITCH CATEGORY"
+
+m_strResetWeaponToDefault			= "Reset Weapon To Defaults"
+
+strCustomizationDestruction_DialogueTitle	= "CUSTOMIZATION DESTRUCTION"
+strCustomizationDestruction_DialogueText	= "This weapon will reset to weapon template defaults.\n\nAre you sure you want to do this?"
+
+[X2EventListener_GunsmithWeapons]
+m_strWeaponGunsmithTitle	= "WEAPON GUNSMITH"
+m_strWeaponGunsmithTooltip	= "Customize visual aspects of this weapon"
+
+[UIListener_MCMOptions_GS]
+m_strGunsmithMod_TabLabel	= "Weapon Gunsmith"
+m_strGunsmithMod_PageTitle	= "Weapon Gunsmith"
+m_strGunsmithMod_Group1Options_Title		= "General Settings (Does Not Require Restart)"
+
+m_strOption_UpgradeUnlocksCategory_Title	= "Upgrades Unlock Part Category"
+m_strOption_UpgradeUnlocksCategory_Tooltip	= "Upgrading a weapon unlocks a weapon category for modification."
+
+m_strOption_CursedGunMode_Title		= "Cursed Gunsmith Mode"
+m_strOption_CursedGunMode_Tooltip	= "Disables filtering for every weapon, allowing players to equip any part on any gun."

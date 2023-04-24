@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="12.0" DefaultTargets="Default" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Guid>8ef76fb3-6ef9-456d-9e7f-bafb67c973ea</Guid>
+    <Name>WotC_Gameplay_Misc_WeaponGunsmith</Name>
+    <Description>Description of My XCOM 2 Mod.
+
+tags= weapon, war of the chosen, Gunsmith, Framework, Cosmetic, Frankengun</Description>
+    <SteamPublishID>0</SteamPublishID>
+    <AssemblyName>WotC_Gameplay_Misc_WeaponGunsmith</AssemblyName>
+    <RootNamespace>WotC_Gameplay_Misc_WeaponGunsmith</RootNamespace>
+    <ProjectGuid>{133e927f-6532-4859-8fb4-56343e84a0a2}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <Content Include="Config\Weapon Parts\XComWeaponPart.ini">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Config\XComEditor.ini">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Config\XComEngine.ini">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Config\XComGame.ini">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Config\XComGameData.ini">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Config\XComMCM_GunsmithModOptions_Default.ini">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Config\XComUI.ini">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Design and Research.txt">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\Part Templates\00_WotC_Gameplay_Misc_WeaponGunsmith.int">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\UI\WotC_Gameplay_Misc_WeaponGunsmith_UI.int">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Localization\Weapons\Assault Rifles\WotC_Gameplay_Misc_WeaponGunsmith_Base.int">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Log.txt">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="ModPreview.jpg">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="ReadMe.txt" />
+    <Content Include="Src\00_WotC_Gameplay_Misc_WeaponGunsmith\Classes\GunsmithDataStructures.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\00_WotC_Gameplay_Misc_WeaponGunsmith\Classes\X2ConfigWeaponPartTemplate.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\00_WotC_Gameplay_Misc_WeaponGunsmith\Classes\X2Item_DefaultWeaponParts.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\00_WotC_Gameplay_Misc_WeaponGunsmith\Classes\XCGS_WeaponGunsmith.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes\AnimNotify_PlayWeaponAnims_GS.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes\X2ConfigWeaponAlphaTemplate.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes\X2DownloadableContentInfo_WotC_GunsmithWeapons.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes\X2Item_Upgrades_Gunsmith.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes\X2Item_Weapon_GlobalStats.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes\X2UnifiedProjectile_Gunsmith.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes\X2Weapon_GunsmithWeapons.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes\XComWeapon_Gunsmith.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes\XGWeapon_Platform_AR.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\MCM_GunsmithModOptions_Defaults.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIArmory_WeaponGunsmith.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIListener_MCMOptions_GS.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIPanel_WeaponCategoryControl.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\X2EventListener_GunsmithWeapons.uc">
+      <SubType>Content</SubType>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Config" />
+    <Folder Include="Config\Weapon Parts" />
+    <Folder Include="Content" />
+    <Folder Include="Localization" />
+    <Folder Include="Localization\Weapons" />
+    <Folder Include="Localization\Part Templates" />
+    <Folder Include="Localization\UI" />
+    <Folder Include="Localization\Weapons\Assault Rifles" />
+    <Folder Include="Src" />
+    <Folder Include="Src\00_WotC_Gameplay_Misc_WeaponGunsmith" />
+    <Folder Include="Src\00_WotC_Gameplay_Misc_WeaponGunsmith\Classes" />
+    <Folder Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI" />
+    <Folder Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base" />
+    <Folder Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_Base\Classes" />
+    <Folder Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes" />
+  </ItemGroup>
+  <Import Project="$(MSBuildLocalExtensionPath)\XCOM2.targets" />
+</Project>

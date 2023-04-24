@@ -1,0 +1,15 @@
+Release ver: 1.002:
+[list]
+	 [*]Fixed issue where upgrading a GS weapon would not inherit any modifications from the previous tier.
+	 [*]Fixed issue where mod updates could break weapon gunsmith states.
+[/list]
+
+Release ver: 1.001:
+[list]
+	 [*]Added missing boolean that allows weapons to be added when loading an existing save.
+[/list]
+
+Release ver: 1.000:
+[list]
+	 [*]Initial release.
+[/list]

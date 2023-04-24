@@ -1,0 +1,27 @@
+[PT_SPECIAL_MUZZLE_NONE X2ConfigWeaponPartTemplate]
+FriendlyName = "None"
+
+[PT_SPECIAL_UNDERBARREL_NONE X2ConfigWeaponPartTemplate]
+FriendlyName = "None"
+
+[PT_SPECIAL_LASER_NONE X2ConfigWeaponPartTemplate]
+FriendlyName = "None"
+
+[PT_SPECIAL_OPTIC_NONE X2ConfigWeaponPartTemplate]
+FriendlyName = "None"
+
+[PT_SPECIAL_LASER_NONE X2ConfigWeaponPartTemplate]
+FriendlyName = "None"
+
+
+[PT_EXAMPLE_RECEIVER_1 X2ConfigWeaponPartTemplate]
+FriendlyName = "M4 5.56 Receiver"
+m_strReceiverFriendlyName = "M4 5.56"
+
+[PT_EXAMPLE_RECEIVER_2 X2ConfigWeaponPartTemplate]
+FriendlyName = "M16A4 Receiver"
+m_strReceiverFriendlyName = "M16A4"
+
+[PT_EXAMPLE_RECEIVER_3 X2ConfigWeaponPartTemplate]
+FriendlyName = "AR-57 Receiver"
+m_strReceiverFriendlyName = "AR-57"
