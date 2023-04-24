@@ -200,7 +200,7 @@ function SwapToWeaponGunsmith()
 static function CHEventListenerTemplate CreateUpgradeItemFix()
 {
 	local CHEventListenerTemplate Template;
-	`CREATE_X2TEMPLATE(class'CHEventListenerTemplate', Template, 'UIArmory_WeaponGunsmith_Button');
+	`CREATE_X2TEMPLATE(class'CHEventListenerTemplate', Template, 'WGF_ItemUpgradeFix');
 	Template.AddCHEvent('ItemUpgraded', UpgradeGunsmithItem, ELD_OnStateSubmitted, 50);
 	Template.RegisterInStrategy = true;
 
