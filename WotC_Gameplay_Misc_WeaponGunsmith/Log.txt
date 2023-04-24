@@ -1,3 +1,9 @@
+Release ver: 1.003:
+[list]
+	 [*]Fixed issue where Weapon Gunsmith Button did not appear.
+	 [*]Added ability for Receivers to change the localization of weapon categories when customizing.
+[/list]
+
 Release ver: 1.002:
 [list]
 	 [*]Fixed issue where upgrading a GS weapon would not inherit any modifications from the previous tier.
