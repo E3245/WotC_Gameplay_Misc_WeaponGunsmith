@@ -34,6 +34,7 @@ If you are thinking of downvoting this mod, please provide feedback first, so I 
      [*]Untested Rifle Grip support.
 	 [*]Weapons created with this mod cannot fully utilize Iridar's Weapon Skin Replacer or XSkin system. No way around this.
 	 [*]Upgrading weapons to Magnetic or Beam tiers do not carry over customization. v1.002 fixes this bug.
+	 [*]Any mod that overrides UIArmory_MainMenu will cause the button to not appear.
 [/list]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 [h1][b]COMPATIBILITY[/b][/h1]
@@ -48,8 +49,6 @@ If you are thinking of downvoting this mod, please provide feedback first, so I 
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 [list]
      [*]Fix some bugs, if any.
-     [*]Port more stuff.
-     [*]Bayonet weapon support.
 [/list]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 [h1][b]F.A.Q[/b][/h1]
@@ -94,8 +93,8 @@ A: Nope.
 [h1][b]LOG[/b][/h1]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 
-Release ver: 1.002:
+Release ver: 1.003:
 [list]
-	 [*]Fixed issue where upgrading a GS weapon would not inherit any modifications from the previous tier.
-	 [*]Fixed issue where mod updates could break weapon gunsmith states.
+	 [*]Fixed issue where Weapon Gunsmith Button did not appear.
+	 [*]Added ability for Receivers to change the localization of weapon categories when customizing.
 [/list]

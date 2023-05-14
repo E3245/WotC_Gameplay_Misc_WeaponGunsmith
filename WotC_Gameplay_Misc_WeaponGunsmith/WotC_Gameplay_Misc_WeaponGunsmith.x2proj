@@ -15,6 +15,12 @@ tags= weapon, war of the chosen, Gunsmith, Framework, Cosmetic, Frankengun</Desc
     <Content Include="Config\Weapon Parts\XComWeaponPart.ini">
       <SubType>Content</SubType>
     </Content>
+    <Content Include="Config\Weapons\Factions\XComWeapon_GlobalStats.ini">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Config\Weapons\XCom\XComWeapon_GlobalStats.ini">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="Config\XComEditor.ini">
       <SubType>Content</SubType>
     </Content>
@@ -109,7 +115,10 @@ tags= weapon, war of the chosen, Gunsmith, Framework, Cosmetic, Frankengun</Desc
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Config" />
+    <Folder Include="Config\Weapons" />
     <Folder Include="Config\Weapon Parts" />
+    <Folder Include="Config\Weapons\Factions" />
+    <Folder Include="Config\Weapons\XCom" />
     <Folder Include="Content" />
     <Folder Include="Localization" />
     <Folder Include="Localization\Weapons" />

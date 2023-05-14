@@ -1,3 +1,8 @@
+Release ver: 1.004:
+[list]
+	 [*]Added global stats config file, for universally swapping stats on GS weapons.
+[/list]
+
 Release ver: 1.003:
 [list]
 	 [*]Fixed issue where Weapon Gunsmith Button did not appear.
