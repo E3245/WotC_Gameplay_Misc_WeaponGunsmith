@@ -35,6 +35,7 @@ If you are thinking of downvoting this mod, please provide feedback first, so I 
 	 [*]Weapons created with this mod cannot fully utilize Iridar's Weapon Skin Replacer or XSkin system. No way around this.
 	 [*]Upgrading weapons to Magnetic or Beam tiers do not carry over customization. v1.002 fixes this bug.
 	 [*]Any mod that overrides UIArmory_MainMenu will cause the button to not appear.
+	 [*]Mod Everything Reloaded messes with the Set Weapon Name button.
 [/list]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 [h1][b]COMPATIBILITY[/b][/h1]
@@ -43,6 +44,15 @@ If you are thinking of downvoting this mod, please provide feedback first, so I 
      [*][url=http://steamcommunity.com/sharedfiles/filedetails/?id=1539942755][WOTC] Iridar's Underbarrel Attachments[/url]
 	 [*]Mod Config Menu.
 	 [*]Every other weapon pack that exists in the XCom 2 workshop.
+[/list]
+[h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
+[h1][b]INCOMPATIBILE MODS[/b][/h1]
+[h3](These mods may have issues)[/h3]
+[h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
+[list]
+     [*][url=http://steamcommunity.com/sharedfiles/filedetails/?id=1539942755][WOTC] Iridar's XSkin mod[/url]. Doesn't play nice with all of the changes that this mod makes to the weapon visualizer.
+     [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=1517938486][WotC] Weapon Skin Replacer[/url]. Certain functions such as swapping weapon meshes will not play nice with Gunsmithable weapons. Template changes are fine though.
+	 [*]Mod Everything Reloaded. Makes changes to the Set Nickname dialog box.
 [/list]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 [h1][b]TODO[/b][/h1]
