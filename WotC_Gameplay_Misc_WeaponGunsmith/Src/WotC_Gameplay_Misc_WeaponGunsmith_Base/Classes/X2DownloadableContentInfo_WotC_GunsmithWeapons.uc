@@ -80,7 +80,7 @@ static function UpdateStorageOnEveryLoad()
 			if(ItemTemplate != none && !XComHQ.HasItem(ItemTemplate)) // Does XComHQ NOT have the new item?
 			{
                 NewItemState = ItemTemplate.CreateInstanceFromTemplate(NewGameState);
-                `LOG("Created " $ ItemTemplate.DataName $ " with ItemState ObjectID: " $ NewItemState.ObjectID,default.bLog, 'WotC_ModernWarfare4_Weapons_Data');
+                `LOG("Created " $ ItemTemplate.DataName $ " with ItemState ObjectID: " $ NewItemState.ObjectID,default.bLog, 'WotC_Gameplay_Misc_WeaponGunsmith_Base');
                 NewGameState.AddStateObject(NewItemState);
                 XComHQ.AddItemToHQInventory(NewItemState);
 			}
@@ -116,7 +116,7 @@ static function UpdateStorage()
 			if(ItemTemplate != none && !XComHQ.HasItem(ItemTemplate)) // Does XComHQ NOT have the new item?
 			{
                 NewItemState = ItemTemplate.CreateInstanceFromTemplate(NewGameState);
-                `LOG("Created " $ ItemTemplate.DataName $ " with ItemState ObjectID: " $ NewItemState.ObjectID, default.bLog, 'WotC_ModernWarfare4_Weapons_Data');
+                `LOG("Created " $ ItemTemplate.DataName $ " with ItemState ObjectID: " $ NewItemState.ObjectID, default.bLog, 'WotC_Gameplay_Misc_WeaponGunsmith_Base');
                 NewGameState.AddStateObject(NewItemState);
                 XComHQ.AddItemToHQInventory(NewItemState);
 			}
