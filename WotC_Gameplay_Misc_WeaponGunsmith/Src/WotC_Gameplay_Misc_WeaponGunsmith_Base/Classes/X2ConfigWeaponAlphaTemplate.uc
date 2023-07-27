@@ -400,37 +400,63 @@ static function OnUnequippedGunsmithTypeWeapon(XComGameState_Item ItemState, XCo
 	// Delete our GS state if this weapon is not modified in any way
 	if (WeaponGunsmithState != none && WeaponGunsmithState.bIsModified == false)
 	{
-		`LOG("Removing State: " $ WeaponGunsmithState.ObjectID $ " from Item [" $ ItemState.ObjectID $ "] " $ ItemState.GetMyTemplateName(),, 'WotC_Gameplay_Misc_WeaponGunsmith');
+		//`LOG("Removing State: " $ WeaponGunsmithState.ObjectID $ " from Item [" $ ItemState.ObjectID $ "] " $ ItemState.GetMyTemplateName(),, 'WotC_Gameplay_Misc_WeaponGunsmith');
 
 		ItemState.RemoveComponentObject(WeaponGunsmithState);
 		NewGameState.RemoveStateObject(WeaponGunsmithState.ObjectID);
 	}
 }
 
+// V1.005: Improved creation delegate to account for bad Gamestates due to mod update
 static function BuildWeaponGunsmithComponentState(XComGameState NewGameState, XComGameState_Item ItemState)
 {
-	local XCGS_WeaponGunsmith 			WeaponGunsmithState;
+	local XCGS_WeaponGunsmith 			WeaponGunsmithState, ModifiedGSState;
 	local X2ConfigWeaponAlphaTemplate	WeaponTemplate;
 	local byte i;
+	local bool	bRequireCreation;
 
 	WeaponGunsmithState = XCGS_WeaponGunsmith(ItemState.FindComponentObject(class'XCGS_WeaponGunsmith'));
+	WeaponTemplate = X2ConfigWeaponAlphaTemplate(ItemState.GetMyTemplate());
+	ModifiedGSState = none;
 
 	// Generate a new tracker state if none exist
-	// Sometimes a mod update can destroy GS weapon state. If this happens, recreate it from scratch
-	if (	(WeaponGunsmithState == none) || 
-			(WeaponGunsmithState != none && WeaponGunsmithState.arrInstalledWeaponPartNames.Length == 0)
-		)
+	if (WeaponGunsmithState == none)
+		bRequireCreation = true;
+	
+	// Sometimes a mod update can destroy GS weapon state. If this happens, reset options to default
+	if (WeaponGunsmithState != none && WeaponGunsmithState.arrInstalledWeaponPartNames.Length == 0)
+	{
+		ModifiedGSState = XCGS_WeaponGunsmith(NewGameState.ModifyStateObject(class'XCGS_WeaponGunsmith', WeaponGunsmithState.ObjectID));
+
+		for (i = PT_RECEIVER; i < PT_MAX; i++)
+			ModifiedGSState.SetPartTemplate(WeaponTemplate.GetDefaultWeaponPartTemplate(WeaponPartType(i)), WeaponPartType(i), true);
+	}
+
+	// If our weapon customization stuff isn't initialized properly due to a mod update, re-create it from scratch
+	if (WeaponGunsmithState != none && WeaponGunsmithState.arrWeaponCustomizationParts.Length == 0)
+	{
+		if (ModifiedGSState == none)
+			ModifiedGSState = XCGS_WeaponGunsmith(NewGameState.ModifyStateObject(class'XCGS_WeaponGunsmith', WeaponGunsmithState.ObjectID));
+
+		// Copy Appearance from ItemState
+		ModifiedGSState.SetDefaultCustomizationState(ItemState.WeaponAppearance);
+	}
+
+	if (bRequireCreation)
 	{
 		WeaponGunsmithState = XCGS_WeaponGunsmith(NewGameState.CreateNewStateObject(class'XCGS_WeaponGunsmith'));
 		WeaponGunsmithState.OnInit( ItemState.GetMyTemplateName() );
-		WeaponTemplate = X2ConfigWeaponAlphaTemplate(ItemState.GetMyTemplate());
-		
+
+
 		for (i = PT_RECEIVER; i < PT_MAX; i++)
 			WeaponGunsmithState.SetPartTemplate(WeaponTemplate.GetDefaultWeaponPartTemplate(WeaponPartType(i)), WeaponPartType(i), true);
 
+		// Copy Appearance from ItemState
+		WeaponGunsmithState.SetDefaultCustomizationState(ItemState.WeaponAppearance);
+
 		ItemState.AddComponentObject(WeaponGunsmithState);
 
-		`LOG("Created Gunsmith State: " $ WeaponGunsmithState.ObjectID $ " for Item [" $ ItemState.ObjectID $ "] " $ ItemState.GetMyTemplateName(),, 'WotC_Gameplay_Misc_WeaponGunsmith');
+		//`LOG("Created Gunsmith State: " $ WeaponGunsmithState.ObjectID $ " for Item [" $ ItemState.ObjectID $ "] " $ ItemState.GetMyTemplateName(),, 'WotC_Gameplay_Misc_WeaponGunsmith');
 		return;
 	}
 }
@@ -633,9 +659,6 @@ function string GetItemFriendlyName(optional int ItemID = 0, optional bool bShow
 	ItemState = XComGameState_Item(History.GetGameStateForObjectID(ItemID));
 	WeaponGunsmithState = XCGS_WeaponGunsmith(ItemState.FindComponentObject(class'XCGS_WeaponGunsmith'));
 
-	if(ItemState != none && ItemState.Nickname != "")
-		strTemp = ItemState.Nickname;
-
 	// Pull the name from the Receiver if there is one and the weapon was modified in any fashion
 	if (WeaponGunsmithState != none && WeaponGunsmithState.bIsModified)
 	{
@@ -644,6 +667,10 @@ function string GetItemFriendlyName(optional int ItemID = 0, optional bool bShow
 		if (ReceiverTemplate != none && ReceiverTemplate.m_strReceiverFriendlyName.Length > 0)
 			strTemp = ReceiverTemplate.m_strReceiverFriendlyName[GetIndexByWeaponTech()];
 	}
+
+	// V1.005: Nicknames take precedence over receiver names
+	if(ItemState != none && ItemState.Nickname != "")
+		strTemp = ItemState.Nickname;
 
 	return class'UIUtilities_Text'.static.FormatCommaSeparatedNouns(strTemp);
 }
@@ -673,6 +700,367 @@ function int GetIndexByWeaponTech()
 	return Val;
 }
 
+static function string WriteJSONForNetwork(XComGameState_Item ItemState)
+{
+	local XCGS_WeaponGunsmith			WeaponGunsmithState;
+	local JSONObject					Root, CustomizeObject;
+	local OnlineSubsystem				m_OnlineSub;
+	local UniqueNetId					PlayerId;
+	local int i;
+
+	// Exit if invalid or not set
+	if (ItemState.ObjectID == 0)
+		return "";
+
+	WeaponGunsmithState = XCGS_WeaponGunsmith(ItemState.FindComponentObject(class'XCGS_WeaponGunsmith'));
+	m_OnlineSub = Class'GameEngine'.static.GetOnlineSubsystem();
+
+	m_OnlineSub.PlayerInterface.GetUniquePlayerId(`ONLINEEVENTMGR.LocalUserIndex, PlayerId);
+	
+	Root = new class'JSONObject';
+
+	// Metadata
+	Root.SetStringValue("Object",							"GunsmithWeapon");
+	Root.SetStringValue("Author",							m_OnlineSub.UniqueNetIdToString(PlayerId) );
+	Root.SetIntValue("Steamworks",							int(class'GameEngine'.static.IsSteamworksInitialized()) );
+
+	Root.SetStringValue("WeaponTemplate",					string(ItemState.GetMyTemplate().DataName));
+	Root.SetStringValue("Nickname",							ItemState.Nickname);
+
+	// Gunsmith Items
+	Root.SetStringValue("ReceiverTemplate",					string(WeaponGunsmithState.GetPartTemplate(PT_RECEIVER).DataName) );
+	Root.SetStringValue("BarrelTemplate",					string(WeaponGunsmithState.GetPartTemplate(PT_BARREL).DataName) );
+	Root.SetStringValue("HandguardTemplate",				string(WeaponGunsmithState.GetPartTemplate(PT_HANDGUARD).DataName) );
+	Root.SetStringValue("StockTemplate",					string(WeaponGunsmithState.GetPartTemplate(PT_STOCK).DataName) );
+	Root.SetStringValue("MagazineTemplate",					string(WeaponGunsmithState.GetPartTemplate(PT_MAGAZINE).DataName) );
+	Root.SetStringValue("ReargripTemplate",					string(WeaponGunsmithState.GetPartTemplate(PT_REARGRIP).DataName) );
+	Root.SetStringValue("UnderbarrelTemplate",				string(WeaponGunsmithState.GetPartTemplate(PT_UNDERBARREL).DataName) );
+	Root.SetStringValue("OpticsTemplate",					string(WeaponGunsmithState.GetPartTemplate(PT_OPTIC).DataName) );
+	Root.SetStringValue("LaserTemplate",					string(WeaponGunsmithState.GetPartTemplate(PT_LASER).DataName) );
+	Root.SetStringValue("MuzzleTemplate",					string(WeaponGunsmithState.GetPartTemplate(PT_MUZZLE).DataName) );
+
+	for(i = PT_NONE; i < PT_MAX; ++i)
+	{
+		CustomizeObject = new class'JSONObject';
+		
+		CustomizeObject.SetStringValue("CamoTemplateName",		string(WeaponGunsmithState.arrWeaponCustomizationParts[i].CamoTemplateName));
+		CustomizeObject.SetIntValue("PrimaryPaletteIdx",		WeaponGunsmithState.arrWeaponCustomizationParts[i].iPrimaryTintPaletteIdx);
+		CustomizeObject.SetIntValue("SecondaryPaletteIdx",		WeaponGunsmithState.arrWeaponCustomizationParts[i].iSecondaryTintPaletteIdx);
+		CustomizeObject.SetStringValue("PrimaryTintColor",		class'UIUtilities_Colors'.static.LinearColorToFlashHex(WeaponGunsmithState.arrWeaponCustomizationParts[i].PrimaryTintColor));
+		CustomizeObject.SetStringValue("SecondaryTintColor",	class'UIUtilities_Colors'.static.LinearColorToFlashHex(WeaponGunsmithState.arrWeaponCustomizationParts[i].SecondaryTintColor));
+		CustomizeObject.SetStringValue("TertiaryTintColor",		class'UIUtilities_Colors'.static.LinearColorToFlashHex(WeaponGunsmithState.arrWeaponCustomizationParts[i].TertiaryTintColor));
+
+		CustomizeObject.SetStringValue("EmissiveColor",			class'UIUtilities_Colors'.static.LinearColorToFlashHex(WeaponGunsmithState.arrWeaponCustomizationParts[i].EmissiveColor));
+		CustomizeObject.SetFloatValue("EmissivePower",			WeaponGunsmithState.arrWeaponCustomizationParts[i].fEmissivePower);
+		CustomizeObject.SetFloatValue("USize",					WeaponGunsmithState.arrWeaponCustomizationParts[i].fTexUSize);
+		CustomizeObject.SetFloatValue("VSize",					WeaponGunsmithState.arrWeaponCustomizationParts[i].fTexVSize);
+		CustomizeObject.SetIntValue("RotDegrees",				WeaponGunsmithState.arrWeaponCustomizationParts[i].iTexRot);
+		
+		CustomizeObject.SetBoolValue("SwapMasks",				WeaponGunsmithState.arrWeaponCustomizationParts[i].bSwapMasks);
+		CustomizeObject.SetBoolValue("PrimaryAsSecondary",		WeaponGunsmithState.arrWeaponCustomizationParts[i].bMergeMasks);
+
+		//Write to main JSON object
+		switch (WeaponPartType(i))
+		{
+			case PT_RECEIVER:
+				Root.SetObject("RECEIVER_CustomizationData", CustomizeObject);
+				break;
+			case PT_BARREL:
+				Root.SetObject("BARREL_CustomizationData", CustomizeObject);
+				break;
+			case PT_HANDGUARD:
+				Root.SetObject("HANDGUARD_CustomizationData", CustomizeObject);
+				break;
+			case PT_STOCK:
+				Root.SetObject("STOCK_CustomizationData", CustomizeObject);
+				break;
+			case PT_MAGAZINE:
+				Root.SetObject("MAGAZINE_CustomizationData", CustomizeObject);
+				break;
+			case PT_REARGRIP:
+				Root.SetObject("REARGRIP_CustomizationData", CustomizeObject);
+				break;
+			case PT_MUZZLE:
+				Root.SetObject("MUZZLE_CustomizationData", CustomizeObject);
+				break;
+			case PT_UNDERBARREL:
+				Root.SetObject("UNDERBARREL_CustomizationData", CustomizeObject);
+				break;
+			case PT_LASER:
+				Root.SetObject("LASER_CustomizationData", CustomizeObject);
+				break;
+			case PT_OPTIC:
+				Root.SetObject("OPTIC_CustomizationData", CustomizeObject);
+				break;
+			// Spit out error
+			case PT_NONE:
+			case PT_MAX:
+				break;
+		}
+	}
+
+	// Tail payload to ensure data is complete
+	Root.SetStringValue("Tail", class'WebRequest'.static.EncodeBase64("WeaponGunsmithIntegrityCheck"));
+
+	// Stringify JSON
+	return class'JsonObject'.static.EncodeJson(Root);
+}
+
+// State submission is NOT handled here, do it outside this function
+static function StateObjectReference ImportJSONFromNetwork(string Data, bool bFilteringDisabled, bool bCreateGameState, StateObjectReference WeaponRef, XCGS_WeaponGunsmith	WeaponGunsmithState)
+{
+	local StateObjectReference					EmptyRef;
+	local JSONObject							Root, CustomizeObject;
+	local X2ItemTemplateManager					ItemMgr;
+	local XComGameState_Item					ImportedWeapon;
+	local XCGS_WeaponGunsmith					ImportedGunsmithState;
+
+	local XComGameState							ChangeState;
+
+	local name									ReceiverTemplateName, WeaponTemplate;
+	local X2ConfigWeaponPartTemplate			ReceiverTemplate, PartTemplate;
+	local int									i;
+	local array<WeaponCustomizationData>		arrImportedCust;
+
+	local XGParamTag							LocTag;
+	local string								Text;
+
+	Root			= class'JsonObject'.static.DecodeJson(Data);
+
+	// Check Heads and Tails and ensure that this is a vaild weapon
+	if (	Root.GetStringValue("Object") != "GunsmithWeapon" && 
+			class'WebRequest'.static.DecodeBase64(Root.GetStringValue("Tail")) != "WeaponGunsmithIntegrityCheck" )
+	{
+		// Write error message
+		ImportFailedDialogue(	class'GunsmithDataStructures'.default.strCustomizationImport_Fail_BadDecode_DialogueTitle,
+																				class'GunsmithDataStructures'.default.strCustomizationImport_Fail_BadDecode_DialogueText);
+		return EmptyRef;
+	}
+
+	ItemMgr			= class'X2ItemTemplateManager'.static.GetItemTemplateManager();
+	ImportedWeapon 	= XComGameState_Item(`XCOMHISTORY.GetGameStateForObjectID(WeaponRef.ObjectID));
+
+	//Author = Root.GetStringValue("Author");
+	//bSteam = Root.GetIntValue("Steamworks");
+
+	// Must match an existing gunsmith template or receiver must support said weapon template
+
+	WeaponTemplate			= name(Root.GetStringValue("WeaponTemplate"));
+	ReceiverTemplateName	= name(Root.GetStringValue("ReceiverTemplate"));
+
+	ReceiverTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(ReceiverTemplateName));
+
+	if (!bFilteringDisabled)
+	{
+		if (WeaponTemplate == '')
+		{
+			ImportFailedDialogue(class'GunsmithDataStructures'.default.strCustomizationImport_Fail_EmptyWeapon_DialogueTitle,
+																				 class'GunsmithDataStructures'.default.strCustomizationImport_Fail_EmptyWeapon_DialogueText);
+			return EmptyRef;
+		}
+
+		if (ReceiverTemplateName == '' || ReceiverTemplate == none)
+		{
+			ImportFailedDialogue(class'GunsmithDataStructures'.default.strCustomizationImport_Fail_EmptyReceiver_DialogueTitle,
+																				 class'GunsmithDataStructures'.default.strCustomizationImport_Fail_EmptyReceiver_DialogueText);
+			return EmptyRef;
+		}
+
+		// Check Weapon Template
+		if (ImportedWeapon.GetMyTemplateName() != WeaponTemplate)
+		{
+			// Mis-matched template, attempt to check if the Receiver supports this weapon
+			if (ReceiverTemplate.arrWeaponTemplateWhitelist.Find(WeaponTemplate) == INDEX_NONE)
+			{
+				LocTag = XGParamTag(`XEXPANDCONTEXT.FindTag("XGParam"));
+				LocTag.StrValue0 = string(WeaponTemplate);
+				Text = `XEXPAND.ExpandString(class'GunsmithDataStructures'.default.strCustomizationImport_Fail_InvalidReceiver_DialogueText);
+
+				// Produce an error message telling the player that this JSON data is not valid for this weapon.
+				ImportFailedDialogue(	class'GunsmithDataStructures'.default.strCustomizationImport_Fail_InvalidReceiver_DialogueTitle,
+																						Text);
+				return EmptyRef;
+			}
+		}
+
+	}
+
+	if (bCreateGameState)
+	{
+		ChangeState = class'XComGameStateContext_ChangeContainer'.static.CreateChangeState("Import Gunsmith Data");
+	}
+
+	ImportedWeapon 			= XComGameState_Item(ChangeState.ModifyStateObject(class'XComGameState_Item', WeaponRef.ObjectID));
+	ImportedGunsmithState	= XCGS_WeaponGunsmith(ChangeState.ModifyStateObject(WeaponGunsmithState.Class, WeaponGunsmithState.ObjectID));
+
+	ImportedWeapon.NickName = Root.GetStringValue("Nickname");
+
+	// Receiver
+	ImportedGunsmithState.SetPartTemplate(ReceiverTemplate, PT_RECEIVER, false, true);
+
+	// Barrel
+	PartTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(name(Root.GetStringValue("BarrelTemplate"))));
+
+	if (PartTemplate == none)
+		PartTemplate = X2ConfigWeaponAlphaTemplate(ImportedWeapon.GetMyTemplate()).GetDefaultWeaponPartTemplate(PT_BARREL);
+
+	ImportedGunsmithState.SetPartTemplate(PartTemplate, PT_BARREL);
+	
+	// Handguard
+	PartTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(name(Root.GetStringValue("HandguardTemplate"))));
+
+	if (PartTemplate == none)
+		PartTemplate = X2ConfigWeaponAlphaTemplate(ImportedWeapon.GetMyTemplate()).GetDefaultWeaponPartTemplate(PT_HANDGUARD);
+
+	ImportedGunsmithState.SetPartTemplate(PartTemplate, PT_HANDGUARD);
+	
+	// Stock
+	PartTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(name(Root.GetStringValue("StockTemplate"))));
+
+	if (PartTemplate == none)
+		PartTemplate = X2ConfigWeaponAlphaTemplate(ImportedWeapon.GetMyTemplate()).GetDefaultWeaponPartTemplate(PT_STOCK);
+
+	ImportedGunsmithState.SetPartTemplate(PartTemplate, PT_STOCK);
+
+	// Reargrip
+	PartTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(name(Root.GetStringValue("ReargripTemplate"))));
+
+	if (PartTemplate == none)
+		PartTemplate = X2ConfigWeaponAlphaTemplate(ImportedWeapon.GetMyTemplate()).GetDefaultWeaponPartTemplate(PT_REARGRIP);
+
+	ImportedGunsmithState.SetPartTemplate(PartTemplate, PT_REARGRIP);
+
+	// Magazine
+	PartTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(name(Root.GetStringValue("MagazineTemplate"))));
+
+	if (PartTemplate == none)
+		PartTemplate = X2ConfigWeaponAlphaTemplate(ImportedWeapon.GetMyTemplate()).GetDefaultWeaponPartTemplate(PT_MAGAZINE);
+
+	ImportedGunsmithState.SetPartTemplate(PartTemplate, PT_MAGAZINE);
+	
+	// Muzzle
+	PartTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(name(Root.GetStringValue("MuzzleTemplate"))));
+
+	if (PartTemplate == none)
+		PartTemplate = X2ConfigWeaponAlphaTemplate(ImportedWeapon.GetMyTemplate()).GetDefaultWeaponPartTemplate(PT_MUZZLE);
+
+	ImportedGunsmithState.SetPartTemplate(PartTemplate, PT_MUZZLE);
+	
+	// Underbarrel
+	PartTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(name(Root.GetStringValue("UnderbarrelTemplate"))));
+
+	if (PartTemplate == none)
+		PartTemplate = X2ConfigWeaponAlphaTemplate(ImportedWeapon.GetMyTemplate()).GetDefaultWeaponPartTemplate(PT_UNDERBARREL);
+
+	ImportedGunsmithState.SetPartTemplate(PartTemplate, PT_UNDERBARREL);
+
+	// Laser
+	PartTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(name(Root.GetStringValue("LaserTemplate"))));
+
+	if (PartTemplate == none)
+		PartTemplate = X2ConfigWeaponAlphaTemplate(ImportedWeapon.GetMyTemplate()).GetDefaultWeaponPartTemplate(PT_LASER);
+
+	ImportedGunsmithState.SetPartTemplate(PartTemplate, PT_LASER);
+
+	// Optic
+	PartTemplate = X2ConfigWeaponPartTemplate(ItemMgr.FindItemTemplate(name(Root.GetStringValue("OpticTemplate"))));
+
+	if (PartTemplate == none)
+		PartTemplate = X2ConfigWeaponAlphaTemplate(ImportedWeapon.GetMyTemplate()).GetDefaultWeaponPartTemplate(PT_OPTIC);
+
+	ImportedGunsmithState.SetPartTemplate(PartTemplate, PT_OPTIC);
+
+	// Initialize array
+	arrImportedCust.Add(PT_MAX);
+
+	for(i = PT_NONE; i < PT_MAX; ++i)
+	{
+		CustomizeObject = none;
+
+		//Write to main JSON object
+		switch (WeaponPartType(i))
+		{
+			case PT_RECEIVER:
+				CustomizeObject = Root.GetObject("RECEIVER_CustomizationData");
+				break;
+			case PT_BARREL:
+				CustomizeObject = Root.GetObject("BARREL_CustomizationData");
+				break;
+			case PT_HANDGUARD:
+				CustomizeObject = Root.GetObject("HANDGUARD_CustomizationData");
+				break;
+			case PT_STOCK:
+				CustomizeObject = Root.GetObject("STOCK_CustomizationData");
+				break;
+			case PT_MAGAZINE:
+				CustomizeObject = Root.GetObject("MAGAZINE_CustomizationData");
+				break;
+			case PT_REARGRIP:
+				CustomizeObject = Root.GetObject("REARGRIP_CustomizationData");
+				break;
+			case PT_MUZZLE:
+				CustomizeObject = Root.GetObject("MUZZLE_CustomizationData");
+				break;
+			case PT_UNDERBARREL:
+				CustomizeObject = Root.GetObject("UNDERBARREL_CustomizationData");
+				break;
+			case PT_LASER:
+				CustomizeObject = Root.GetObject("LASER_CustomizationData");
+				break;
+			case PT_OPTIC:
+				CustomizeObject = Root.GetObject("OPTIC_CustomizationData");
+				break;
+			// Spit out error
+			case PT_NONE:
+			case PT_MAX:
+				break;
+		}
+
+		if (CustomizeObject == none)
+			continue;
+		
+		arrImportedCust[i].CamoTemplateName				= name(CustomizeObject.GetStringValue("CamoTemplateName"));
+		arrImportedCust[i].iPrimaryTintPaletteIdx		= CustomizeObject.GetIntValue("PrimaryPaletteIdx");
+		arrImportedCust[i].iSecondaryTintPaletteIdx		= CustomizeObject.GetIntValue("SecondaryPaletteIdx");
+
+		arrImportedCust[i].PrimaryTintColor				= class'GunsmithDataStructures'.static.HexStringToLinearColor(Repl(CustomizeObject.GetStringValue("PrimaryTintColor"), "0x00", ""));
+		arrImportedCust[i].SecondaryTintColor			= class'GunsmithDataStructures'.static.HexStringToLinearColor(Repl(CustomizeObject.GetStringValue("SecondaryTintColor"), "0x00", ""));
+		arrImportedCust[i].TertiaryTintColor			= class'GunsmithDataStructures'.static.HexStringToLinearColor(Repl(CustomizeObject.GetStringValue("TertiaryTintColor"), "0x00", ""));
+		arrImportedCust[i].EmissiveColor				= class'GunsmithDataStructures'.static.HexStringToLinearColor(Repl(CustomizeObject.GetStringValue("EmissiveColor"), "0x00", "")); 
+		
+		arrImportedCust[i].fEmissivePower				= CustomizeObject.GetFloatValue("EmissivePower");
+		arrImportedCust[i].fTexUSize					= CustomizeObject.GetFloatValue("USize");
+		arrImportedCust[i].fTexVSize					= CustomizeObject.GetFloatValue("VSize");
+		arrImportedCust[i].iTexRot						= CustomizeObject.GetIntValue("RotDegrees");
+
+		arrImportedCust[i].bSwapMasks					= CustomizeObject.GetBoolValue("SwapMasks");
+		arrImportedCust[i].bMergeMasks					= CustomizeObject.GetBoolValue("PrimaryAsSecondary");
+	}
+
+	ImportedGunsmithState.arrWeaponCustomizationParts = arrImportedCust;
+
+	if (bCreateGameState)
+	{
+		if (ChangeState.GetNumGameStateObjects() > 0)
+			`GAMERULES.SubmitGameState(ChangeState);
+		else
+			`XCOMHISTORY.CleanupPendingGameState(ChangeState);
+	}
+
+	return ImportedWeapon.GetReference();
+}
+
+static function ImportFailedDialogue(string Title, string Text)
+{
+	local TDialogueBoxData kDialogData;
+
+	kDialogData.eType = eDialog_Warning;
+	kDialogData.strTitle	= Title;
+	kDialogData.strText		= Text;
+	kDialogData.strAccept	= class'UIUtilities_Text'.default.m_strGenericAccept;
+
+	`PRESBASE.UIRaiseDialog(kDialogData);
+}
 
 DefaultProperties
 {

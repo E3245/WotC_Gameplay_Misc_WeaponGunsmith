@@ -45,6 +45,9 @@ tags= weapon, war of the chosen, Gunsmith, Framework, Cosmetic, Frankengun</Desc
     <Content Include="Localization\Part Templates\00_WotC_Gameplay_Misc_WeaponGunsmith.int">
       <SubType>Content</SubType>
     </Content>
+    <Content Include="Localization\UI\00_WotC_Gameplay_Misc_WeaponGunsmith.int">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="Localization\UI\WotC_Gameplay_Misc_WeaponGunsmith_UI.int">
       <SubType>Content</SubType>
     </Content>
@@ -106,7 +109,22 @@ tags= weapon, war of the chosen, Gunsmith, Framework, Cosmetic, Frankengun</Desc
     <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIListener_MCMOptions_GS.uc">
       <SubType>Content</SubType>
     </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIMechaListItem_ColorEditor.uc">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIPanel_WeaponCategoryControl.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIPanel_WeaponCustomization_Color.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIPanel_WeaponCustomization_Emissive.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIPanel_WeaponCustomization_Options.uc">
+      <SubType>Content</SubType>
+    </Content>
+    <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\UIPanel_WeaponCustomization_Share.uc">
       <SubType>Content</SubType>
     </Content>
     <Content Include="Src\WotC_Gameplay_Misc_WeaponGunsmith_UI\Classes\X2EventListener_GunsmithWeapons.uc">

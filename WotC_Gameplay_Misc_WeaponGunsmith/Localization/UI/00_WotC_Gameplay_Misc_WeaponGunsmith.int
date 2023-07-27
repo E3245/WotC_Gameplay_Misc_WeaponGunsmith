@@ -1,0 +1,12 @@
+[GunsmithDataStructures]
+strCustomizationImport_Fail_BadDecode_DialogueTitle	= "ERROR: DATA MALFORMED!"
+strCustomizationImport_Fail_BadDecode_DialogueText	= "The following JSON is not a valid gunsmith weapon!\n\nCheck to make sure the contents are getting copied correctly.\nCheck if the data hasn't been modified at all."
+
+strCustomizationImport_Fail_EmptyWeapon_DialogueTitle	= "ERROR: EMPTY WEAPON"
+strCustomizationImport_Fail_EmptyWeapon_DialogueText	= "The following payload has no weapon assigned to it or does not exist!\n\nPlease check the integrity of the payload.\nCopy the contents to the clipboard and try again."
+
+strCustomizationImport_Fail_EmptyReceiver_DialogueTitle	= "ERROR: EMPTY RECEIVER"
+strCustomizationImport_Fail_EmptyReceiver_DialogueText	= "The following payload has no receiver assigned to it, or it does not exist within your current modlist!\n\nPlease check you have the necessary mods installed.\nCheck the integrity of the payload.\nCopy the contents to the clipboard and try again."
+
+strCustomizationImport_Fail_InvalidReceiver_DialogueTitle	= "ERROR: MISMATCHED RECEIVER"
+strCustomizationImport_Fail_InvalidReceiver_DialogueText	= "The following weapon <XGParam:StrValue0/> is not a valid Receiver candidate.\n\nPlease equip a compatible weapon or turn on Cursed Gunsmith Mode in the Mod Config Options in the Options menu."

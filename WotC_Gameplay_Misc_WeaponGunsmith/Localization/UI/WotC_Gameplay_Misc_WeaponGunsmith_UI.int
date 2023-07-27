@@ -18,13 +18,27 @@ m_PartSelectorTitle	= "PART SELECTOR"
 
 m_strButton_SwapToWeaponGunsmith	= "SWAP TO WEAPON GUNSMITH"
 m_strButton_SwapToWeaponUpgrade		= "SWAP TO WEAPON UPGRADE"
+m_strButton_SwapToGSCustomize		= "ENTER CUSTOMIZE MODE"
+m_strButton_SwapFromGSCustomize		= "SAVE CHANGES AND EXIT"
+
+m_strTitle_Customization			= "CUSTOMIZATION"
 
 m_strSwitchPartCategoryNavHelp		= "SWITCH CATEGORY"
 
 m_strResetWeaponToDefault			= "Reset Weapon To Defaults"
+m_strResetWeaponCosmeticsToDefault	= "Reset Camo/Tint Appearance"
 
 strCustomizationDestruction_DialogueTitle	= "CUSTOMIZATION DESTRUCTION"
 strCustomizationDestruction_DialogueText	= "This weapon will reset to weapon template defaults.\n\nAre you sure you want to do this?"
+
+strCustomizationUnsavedChanges_DialogueTitle	= "UNSAVED CHANGES"
+strCustomizationUnsavedChanges_DialogueText		= "Are you sure you want to exit?\n\nAny changes to color, camo, or masks will be lost!"
+
+strCustomizationAppearanceReset_DialogueTitle	= "APPEARANCE DESTRUCTION"
+strCustomizationAppearanceReset_DialogueText	= "This weapon's camo, tint colors, etc. will reset to the weapon's default apperance set by the owner soldier.\n\nAre you sure you want to continue?"
+
+strCustomizationRenameMissingLoc_DialogueTitle	= "NO FRIENDLY NAME SET"
+strCustomizationRenameMissingLoc_DialogueText	= "This weapon has no friendly name set in the Weapon Template's localization file. Renames cannot happen until this is resolved.\n\n Please contact the mod author with this error message:\n\n"
 
 [X2EventListener_GunsmithWeapons]
 m_strWeaponGunsmithTitle	= "WEAPON GUNSMITH"
@@ -40,3 +54,49 @@ m_strOption_UpgradeUnlocksCategory_Tooltip	= "Upgrading a weapon unlocks a weapo
 
 m_strOption_CursedGunMode_Title		= "Cursed Gunsmith Mode"
 m_strOption_CursedGunMode_Tooltip	= "Disables filtering for every weapon, allowing players to equip any part on any gun."
+
+[UIPanel_WeaponCustomization_Color]
+
+strHeader = "TINT COLORS"
+
+strTitle_PrimaryColor	= "Primary"
+strTitle_SecondaryColor	= "Secondary"
+strTitle_TertiaryColor	= "Tertiary"
+
+strTitle_TextBox_PrimaryColor	= "Primary Color Input"
+strTitle_TextBox_SecondaryColor	= "Secondary Color Input"
+strTitle_TextBox_TertiaryColor	= "Tertiary Color Input"
+
+[UIPanel_WeaponCustomization_Emissive]
+
+strHeader = "EMISSIVE COLOR"
+
+strTitle_EmissiveColor = "Glow";
+
+strTitle_TextBox_EmissiveColor = "Emissive Color Input"
+
+[UIPanel_WeaponCustomization_Options]
+strHeader = "OPTIONS"
+
+strOption_SwapMasks		= "Swap Masks"
+strOption_ApplyToAll	= "Apply to All Parts"
+strButton_ApplyToAll	= "Apply"
+strOption_MergeTints	= "Primary Is Secondary"
+strOption_TexCoord_U	= "U"
+strOption_TexCoord_V	= "V"
+strOption_TexCoord_Rotation	= "Rot"
+
+strTooltip_SwapMasks	= "Swaps the Primary Tint with the Secondary Tint, and the Secondary Tint and the Primary Tint."
+strTooltip_ApplyToAll	= "Applies this part's customization to all other parts."
+strTooltip_MergeTints	= "Disable's the Secondary tint color and replaces it with only the Primary Tint."
+
+[UIPanel_WeaponCustomization_Share]
+
+ShareButtonLabel	= "Share To Clipboard"
+ImportButtonLabel	= "Import From Clipboard"
+
+strCustomizationShare_Success_DialogueTitle = "WEAPON COPIED!"
+strCustomizationShare_Success_DialogueText  = "This weapon's appearance has been copied to your clipboard!\n\nPlease paste the contents to a new notepad file!"
+
+strCustomizationImport_Success_DialogueTitle	= "IMPORT SUCCESSFUL!"
+strCustomizationImport_Success_DialogueText		= "The following weapon now takes on the appearance of your imported weapon."

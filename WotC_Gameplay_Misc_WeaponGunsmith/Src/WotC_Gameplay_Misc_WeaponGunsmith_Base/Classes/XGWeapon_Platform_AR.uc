@@ -6,6 +6,8 @@
 //           of certain parts dictate where other parts go. 
 //
 //           (E.g different barrels has different locations for muzzle breaks)
+//
+//			 V1.005: SetApperance() implementation for separate parts
 //           
 //---------------------------------------------------------------------------------------
 //  Copyright (c) 2016 Firaxis Games, Inc. All rights reserved.
@@ -40,6 +42,21 @@ var protected SkeletalMeshComponent MuzzleComponent;
 var SoundCue FireSound;
 
 var bool	 bUseRifleGrip;
+
+var array<WeaponCustomizationData>	arrWeaponCustomizationData;
+
+var array<name>	ReceiverMaterialNames;
+var array<name>	BarrelMaterialNames;
+var array<name>	HandguardMaterialNames;
+var array<name>	StockMaterialNames;
+var array<name>	MagazineMaterialNames;
+var array<name>	ReargripMaterialNames;
+var array<name>	UnderbarrelMaterialNames;
+var array<name>	OpticMaterialNames;
+var array<name>	LaserMaterialNames;
+var array<name>	MuzzleMaterialNames;
+
+const CylinderLaserCapSocket = 'PT_LASER_CAP';
 
 // Only used to preview upgrades since components aren't actually updated unlike base objects
 // Do not use it for anything else
@@ -164,36 +181,44 @@ simulated function Actor CreateEntity(optional XComGameState_Item ItemState=none
 	{
 		// Start with the default appearance on this item
 		WeaponAppearance = ItemState.WeaponAppearance;
-			
-		if (UnitState != none)
-		{				
-			// Get the unit's primary weapon appearance
-			AppearanceWeapon = UnitState.GetPrimaryWeapon();
-			if (AppearanceWeapon != none)
-			{
-				// If the primary weapon exists, set it as the default
-				WeaponAppearance = AppearanceWeapon.WeaponAppearance;
+		
+		// V1.005: Check if we have custom customization active
+		if (arrWeaponCustomizationData.Length > 0)
+		{
+			SetAppearanceIndividual(arrWeaponCustomizationData);
+		}
+		else
+		{
+			if (UnitState != none)
+			{				
+				// Get the unit's primary weapon appearance
+				AppearanceWeapon = UnitState.GetPrimaryWeapon();
+				if (AppearanceWeapon != none)
+				{
+					// If the primary weapon exists, set it as the default
+					WeaponAppearance = AppearanceWeapon.WeaponAppearance;
 
-				// But if this item is a weapon which uses armor appearance data, save the tint and pattern from the unit instead
-				if (WeaponTemplate != none && WeaponTemplate.bUseArmorAppearance)
-				{
-					WeaponAppearance.iWeaponTint = UnitState.kAppearance.iArmorTint;
-					WeaponAppearance.nmWeaponPattern = UnitState.kAppearance.nmPatterns;
-				}
-				else
-				{
-					// If not, check to see if the primary tints from the unit. If it does, grab the secondary weapon appearance instead.
-					WeaponTemplate = X2WeaponTemplate(AppearanceWeapon.GetMyTemplate());
+					// But if this item is a weapon which uses armor appearance data, save the tint and pattern from the unit instead
 					if (WeaponTemplate != none && WeaponTemplate.bUseArmorAppearance)
 					{
-						AppearanceWeapon = UnitState.GetSecondaryWeapon();
-						WeaponAppearance = AppearanceWeapon.WeaponAppearance;
+						WeaponAppearance.iWeaponTint = UnitState.kAppearance.iArmorTint;
+						WeaponAppearance.nmWeaponPattern = UnitState.kAppearance.nmPatterns;
+					}
+					else
+					{
+						// If not, check to see if the primary tints from the unit. If it does, grab the secondary weapon appearance instead.
+						WeaponTemplate = X2WeaponTemplate(AppearanceWeapon.GetMyTemplate());
+						if (WeaponTemplate != none && WeaponTemplate.bUseArmorAppearance)
+						{
+							AppearanceWeapon = UnitState.GetSecondaryWeapon();
+							WeaponAppearance = AppearanceWeapon.WeaponAppearance;
+						}
 					}
 				}
 			}
-		}
 
-		SetAppearance(WeaponAppearance);
+			SetAppearance(WeaponAppearance);
+		}
 	}
 
 	if (`TACTICALRULES != none)
@@ -203,6 +228,13 @@ simulated function Actor CreateEntity(optional XComGameState_Item ItemState=none
 		// Override firing archetypes' default animation name if the receiver template has one
 		if (ReceiverTemplate != none)
 		{
+			// V1.005: Added boolean to clear previous pawn animations
+			if (ReceiverTemplate.bReplacePawnAnimSets)
+			{
+				kNewWeapon.CustomUnitPawnAnimsetsFemale.Length = 0;
+				kNewWeapon.CustomUnitPawnAnimsets.Length = 0;
+			}
+
 			if (ReceiverTemplate.Pawn_WeaponFireAnimSequenceName != '')
 				kNewWeapon.WeaponFireAnimSequenceName				= ReceiverTemplate.Pawn_WeaponFireAnimSequenceName;
 
@@ -268,13 +300,14 @@ function AddRifleGripAnimations(XComWeapon kWeapon)
 
 // The logic can switch between battle/sniper rifle platforms (Remington 700, M14) and modern AR-15/AK-pattern platforms
 // Override as needed
+// If you update this part, please update ApplyIndividualAppearanceOnWeapon() as well!
 function AssembleWeaponParts(XComWeapon kNewWeapon, SkeletalMeshComponent WeaponMesh, SkeletalMeshComponent PawnMesh)
 {
-	local int i;
+	local int i, Idx;
 	local array<WeaponAttachment>		WeaponAttachments;
 	local StaticMeshComponent			MeshComp;
 	local SkeletalMeshComponent			SkelMeshComp;
-    local WeaponPartAttachment			IterWeaponAttachment, ReceiverWPNAtt;
+    local WeaponPartAttachment			IterWeaponAttachment, ReceiverWPNAtt, PartWPNAtt;
 
     WeaponAttachments = InternalWeaponState.GetWeaponAttachments();
 
@@ -293,14 +326,14 @@ function AssembleWeaponParts(XComWeapon kNewWeapon, SkeletalMeshComponent Weapon
 		ReceiverWPNAtt.AttachSocket = ReceiverTemplate.RifleGripSocketName;
 	}
 
-	`LOG("Weapon " $ ObjectID $ " has Rifle Grip: " $ bUseRifleGrip ,, 'WotC_Gameplay_Misc_WeaponGunsmith');
+	//`LOG("Weapon " $ ObjectID $ " has Rifle Grip: " $ bUseRifleGrip ,, 'WotC_Gameplay_Misc_WeaponGunsmith');
 
 	//
 	// RECEIVER
 	//
 	if (ReceiverTemplate != none && WeaponMesh.GetSocketByName(ReceiverTemplate.MainComponent.AttachSocket) != none)
 	{
-		AttachUpgradeToSkeletalComponent(kNewWeapon, WeaponMesh, ReceiverWPNAtt, ReceiverComponent);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, WeaponMesh, ReceiverWPNAtt, ReceiverComponent, PT_RECEIVER);
 		//`LOG("Weapon Archetype " $ kNewWeapon.PathName $ " has Socket " $ ReceiverTemplate.MainComponent.AttachSocket $ " on main mesh",, 'WotC_Gameplay_Misc_WeaponGunsmith');
 	}
 	else
@@ -310,7 +343,7 @@ function AssembleWeaponParts(XComWeapon kNewWeapon, SkeletalMeshComponent Weapon
 	// BARREL
 	//
 	if (BarrelTemplate != none && ReceiverComponent.GetSocketByName(BarrelTemplate.MainComponent.AttachSocket) != none)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, BarrelTemplate.MainComponent, BarrelComponent);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, BarrelTemplate.MainComponent, BarrelComponent, PT_BARREL);
 
 	//
 	// HANDGUARD
@@ -326,26 +359,41 @@ function AssembleWeaponParts(XComWeapon kNewWeapon, SkeletalMeshComponent Weapon
 			SkelMeshComp = ReceiverComponent;
 
 		if (SkelMeshComp != none)
-			AttachUpgradeToSkeletalComponent(kNewWeapon, SkelMeshComp, HandguardTemplate.MainComponent, HandguardComponent);
+			AttachUpgradeToSkeletalComponent(kNewWeapon, SkelMeshComp, HandguardTemplate.MainComponent, HandguardComponent, PT_HANDGUARD);
 	}
 
 	//
 	// STOCK
 	//
-	if (StockTemplate != none && ReceiverComponent.GetSocketByName(StockTemplate.MainComponent.AttachSocket) != none)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, StockTemplate.MainComponent, StockComponent);
+	if (StockTemplate != none)
+	{
+		// V1.005: Reduce clutter by having parts have alternate sockets. Stocks only supported for now.
+		PartWPNAtt = StockTemplate.MainComponent;
+		
+		if (StockTemplate.AltSocketWithReceiver.Length > 0)
+		{
+			Idx = StockTemplate.AltSocketWithReceiver.Find('ReceiverName', ReceiverTemplate.DataName);
+
+			if (Idx != INDEX_NONE)
+				PartWPNAtt.AttachSocket = StockTemplate.AltSocketWithReceiver[Idx].SocketName;
+		}
+
+		// V1.005: Fail to attach if the socket doesnt exist on the weapon
+		if (ReceiverComponent.GetSocketByName(PartWPNAtt.AttachSocket) != none)
+			AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, PartWPNAtt, StockComponent, PT_STOCK);
+	}
 
 	//
 	// MAGAZINE
 	//
 	if (MagazineTemplate != none && ReceiverComponent.GetSocketByName(MagazineTemplate.MainComponent.AttachSocket) != none)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, MagazineTemplate.MainComponent, MagazineComponent);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, MagazineTemplate.MainComponent, MagazineComponent, PT_MAGAZINE);
 
 	//
 	// REARGRIP
 	//
 	if (ReargripTemplate != none && ReceiverComponent.GetSocketByName(ReargripTemplate.MainComponent.AttachSocket) != none)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, ReargripTemplate.MainComponent, ReargripComponent);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, ReargripTemplate.MainComponent, ReargripComponent, PT_REARGRIP);
 
 	//
 	// UNDERBARREL
@@ -363,7 +411,7 @@ function AssembleWeaponParts(XComWeapon kNewWeapon, SkeletalMeshComponent Weapon
 			SkelMeshComp = ReceiverComponent;
 
 		if (SkelMeshComp != none)
-			AttachUpgradeToSkeletalComponent(kNewWeapon, SkelMeshComp, UnderbarrelTemplate.MainComponent, UnderbarrelComponent);
+			AttachUpgradeToSkeletalComponent(kNewWeapon, SkelMeshComp, UnderbarrelTemplate.MainComponent, UnderbarrelComponent, PT_UNDERBARREL);
 	}
 
 	//
@@ -382,7 +430,7 @@ function AssembleWeaponParts(XComWeapon kNewWeapon, SkeletalMeshComponent Weapon
 			SkelMeshComp = ReceiverComponent;
 		
 		if (SkelMeshComp != none)
-			AttachUpgradeToSkeletalComponent(kNewWeapon, SkelMeshComp, OpticsTemplate.MainComponent, OpticComponent);
+			AttachUpgradeToSkeletalComponent(kNewWeapon, SkelMeshComp, OpticsTemplate.MainComponent, OpticComponent, PT_OPTIC);
 	}
 
 	//
@@ -402,47 +450,52 @@ function AssembleWeaponParts(XComWeapon kNewWeapon, SkeletalMeshComponent Weapon
 			SkelMeshComp = ReceiverComponent;
 
 		if (SkelMeshComp != none)
-			AttachUpgradeToSkeletalComponent(kNewWeapon, SkelMeshComp, LaserTemplate.MainComponent, LaserComponent);
+			AttachUpgradeToSkeletalComponent(kNewWeapon, SkelMeshComp, LaserTemplate.MainComponent, LaserComponent, PT_LASER);
 	}
 
 	//
 	// MUZZLE
 	//
 	if (MuzzleTemplate != none && BarrelComponent.GetSocketByName(MuzzleTemplate.MainComponent.AttachSocket) != none)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, BarrelComponent, MuzzleTemplate.MainComponent, MuzzleComponent);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, BarrelComponent, MuzzleTemplate.MainComponent, MuzzleComponent, PT_MUZZLE);
 
 	// STEP 2
 	// Now attach the rest of the objects together
 	// This is done at this part since there might be sockets that depend on other parts existing first (i.e. Scopes)
 	foreach ReceiverTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, IterWeaponAttachment);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, ReceiverComponent, IterWeaponAttachment,, PT_RECEIVER);
 
 	foreach BarrelTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, BarrelComponent, IterWeaponAttachment);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, BarrelComponent, IterWeaponAttachment,, PT_BARREL);
 	
 	foreach HandguardTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, HandguardComponent, IterWeaponAttachment);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, HandguardComponent, IterWeaponAttachment,, PT_HANDGUARD);
 
 	foreach StockTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, StockComponent, IterWeaponAttachment);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, StockComponent, IterWeaponAttachment,, PT_STOCK);
 
 	foreach MagazineTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, MagazineComponent, IterWeaponAttachment);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, MagazineComponent, IterWeaponAttachment,, PT_MAGAZINE);
 
 	foreach ReargripTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, ReargripComponent, IterWeaponAttachment);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, ReargripComponent, IterWeaponAttachment,, PT_REARGRIP);
 
 	foreach UnderbarrelTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, UnderbarrelComponent, IterWeaponAttachment);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, UnderbarrelComponent, IterWeaponAttachment,, PT_UNDERBARREL);
 
 	foreach OpticsTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, OpticComponent, IterWeaponAttachment);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, OpticComponent, IterWeaponAttachment,, PT_OPTIC);
 
 	foreach LaserTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, LaserComponent, IterWeaponAttachment);
+	{
+		if (BarrelTemplate.bBarrel_DisableLaserCap && IterWeaponAttachment.AttachSocket == CylinderLaserCapSocket)	// V1.005: Barrels can disable the laser cap attachment if needed
+			continue;
+
+		AttachUpgradeToSkeletalComponent(kNewWeapon, LaserComponent, IterWeaponAttachment,, PT_LASER);
+	}
 
 	foreach MuzzleTemplate.arrAttachments(IterWeaponAttachment)
-		AttachUpgradeToSkeletalComponent(kNewWeapon, MuzzleComponent, IterWeaponAttachment);
+		AttachUpgradeToSkeletalComponent(kNewWeapon, MuzzleComponent, IterWeaponAttachment,, PT_MUZZLE);
 
 	// Reset component for loop
 	SkelMeshComp = none;
@@ -496,7 +549,7 @@ function AssembleWeaponParts(XComWeapon kNewWeapon, SkeletalMeshComponent Weapon
 	CreateDefaultSocketsOnMainMesh(WeaponMesh);
 }
 
-function AttachUpgradeToSkeletalComponent(XComWeapon kNewWeapon, SkeletalMeshComponent SkelMeshReceiver, WeaponPartAttachment WPNAttachment, optional out SkeletalMeshComponent AttachmentMesh)
+function AttachUpgradeToSkeletalComponent(XComWeapon kNewWeapon, SkeletalMeshComponent SkelMeshReceiver, WeaponPartAttachment WPNAttachment, optional out SkeletalMeshComponent AttachmentMesh, optional WeaponPartType Part)
 {
 	local SkeletalMeshComponent			SkelMeshComp;
 	local AnimSet						LinkedAnimSet;
@@ -536,7 +589,7 @@ function AttachUpgradeToSkeletalComponent(XComWeapon kNewWeapon, SkeletalMeshCom
 			SkelMeshComp.bCastStaticShadow = false;
 			
 			// Update materials before attaching component
-			UpdateMaterials(SkelMeshComp);
+			UpdateMaterialsAndGatherList(SkelMeshComp, Part);
 
 			// If a part has an AnimSet linked, then we need to load it in and initialize the AnimTree
 			if (WPNAttachment.AnimSetPath != "")
@@ -567,11 +620,12 @@ function AttachUpgradeToSkeletalComponent(XComWeapon kNewWeapon, SkeletalMeshCom
 			//	PawnAttachments.AddItem(SkelMeshComp);
 			//}
 			//else
-			//{
+			//
+				AttachmentMesh = SkelMeshComp;
 				SkelMeshReceiver.AttachComponentToSocket(SkelMeshComp, WPNAttachment.AttachSocket);
 			//}	
 
-			AttachmentMesh = SkelMeshComp;
+
 		}
 	}
 }
@@ -625,9 +679,11 @@ function CreateDefaultSocketsOnMainMesh(SkeletalMeshComponent WeaponMesh)
 	// Get FlashLight socket
 	// In Order
 	// - LASER
+	// - BARREL (V1.005)
 	// - RECEIVER
 	arrMeshes.Length = 0;
 	arrMeshes.AddItem(LaserComponent);
+	arrMeshes.AddItem(BarrelComponent);	// V1.005: Included Barrels
 	arrMeshes.AddItem(ReceiverComponent);
 
 	AttachSocket = CreateSocketForMainWeaponMesh(arrMeshes, 'FlashLight');
@@ -685,7 +741,6 @@ function SkeletalMeshSocket CreateSocketForMainWeaponMesh(array<SkeletalMeshComp
 			ItMesh.GetSocketWorldLocationAndRotation(SocketToSearchFor, SocketVect, SocketRot);
 			bFoundSocket = true;
 			break;
-
 		}
 	}
 
@@ -707,14 +762,26 @@ function SkeletalMeshSocket CreateSocketForMainWeaponMesh(array<SkeletalMeshComp
 }
 
 //
-// Update every component that's tied to this gamedata
-// 
-simulated function SetAppearance( const out TWeaponAppearance kAppearance, optional bool bRequestContent=true )
+// WEAPON CUSTOMIZATION
+//
+
+// Original hook to update appearance
+simulated function SetAppearance( const out TWeaponAppearance kAppearance, optional bool bRequestContent=true)
 {
 	m_kAppearance = kAppearance;
 	if (bRequestContent)
 	{
-		ApplyAppearanceOnWeapon();
+		ApplyAppearanceOnWeapon();		// Apply default camo on everything
+	}
+}
+
+simulated function SetAppearanceIndividual(array<WeaponCustomizationData> newCustomizationData, optional bool bRequestContent=true)
+{
+	arrWeaponCustomizationData = newCustomizationData;
+
+	if (bRequestContent)
+	{
+		ApplyIndividualAppearanceOnWeapon();
 	}
 }
 
@@ -798,6 +865,406 @@ function UpdateComponentMaterial(SkeletalMeshComponent MeshComp)
 		}
 	}
 }
+
+// Iterate through the array of weapon customization elements and apply to each part
+function ApplyIndividualAppearanceOnWeapon()
+{
+	local MeshComponent				MeshComp;
+
+	// PT_NONE (Usually the main mesh of the weapon)
+	if(XComWeapon(m_kEntity) != none)
+	{
+		MeshComp = XComWeapon(m_kEntity).Mesh;
+		UpdateAllWeaponCustomizationMaterials(MeshComp, PT_RECEIVER);
+	}
+
+	// Receiver part
+	if (SkeletalMeshComponent(MeshComp) != none)
+		UpdateComponentMaterial_WeaponCustomization(SkeletalMeshComponent(MeshComp), PT_RECEIVER);
+
+	// Update every other component
+	// If there's multiple function calls, that means that potentially there's another place a part can exist in
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent, PT_RECEIVER);
+
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent, PT_BARREL);
+	UpdateComponentMaterial_WeaponCustomization(BarrelComponent, PT_BARREL);
+
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent, PT_HANDGUARD);
+	UpdateComponentMaterial_WeaponCustomization(BarrelComponent, PT_HANDGUARD);
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent, PT_HANDGUARD);
+	UpdateComponentMaterial_WeaponCustomization(HandguardComponent, PT_HANDGUARD);
+
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent,	PT_STOCK);
+	UpdateComponentMaterial_WeaponCustomization(StockComponent,		PT_STOCK);
+
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent, PT_MAGAZINE);
+	UpdateComponentMaterial_WeaponCustomization(MagazineComponent, PT_MAGAZINE);
+
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent, PT_REARGRIP);
+	UpdateComponentMaterial_WeaponCustomization(ReargripComponent, PT_REARGRIP);
+
+	UpdateComponentMaterial_WeaponCustomization(BarrelComponent, PT_UNDERBARREL);
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent, PT_UNDERBARREL);
+	UpdateComponentMaterial_WeaponCustomization(HandguardComponent, PT_UNDERBARREL);
+	UpdateComponentMaterial_WeaponCustomization(UnderbarrelComponent, PT_UNDERBARREL);
+
+	UpdateComponentMaterial_WeaponCustomization(BarrelComponent, PT_LASER);
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent, PT_LASER);
+	UpdateComponentMaterial_WeaponCustomization(HandguardComponent, PT_LASER);
+	UpdateComponentMaterial_WeaponCustomization(LaserComponent, PT_LASER);
+
+	UpdateComponentMaterial_WeaponCustomization(BarrelComponent, PT_OPTIC);
+	UpdateComponentMaterial_WeaponCustomization(ReceiverComponent, PT_OPTIC);
+	UpdateComponentMaterial_WeaponCustomization(HandguardComponent, PT_OPTIC);
+	UpdateComponentMaterial_WeaponCustomization(OpticComponent, PT_OPTIC);
+
+	UpdateComponentMaterial_WeaponCustomization(BarrelComponent, PT_MUZZLE);
+	UpdateComponentMaterial_WeaponCustomization(MuzzleComponent, PT_MUZZLE);
+}
+
+function UpdateComponentMaterial_WeaponCustomization(SkeletalMeshComponent MeshComp, WeaponPartType Part)
+{
+	local MeshComponent AttachedComponent;
+	local int i;
+
+	// Do nothing if there's empty meshes
+	if (MeshComp == none)
+		return;
+
+	for(i = 0; i < MeshComp.Attachments.Length; ++i)
+	{
+		AttachedComponent = MeshComponent(MeshComp.Attachments[i].Component);
+
+		if(AttachedComponent != none)
+		{
+			UpdateAllWeaponCustomizationMaterials(AttachedComponent, Part);
+		}
+	}
+}
+
+simulated private function UpdateAllWeaponCustomizationMaterials(MeshComponent MeshComp, WeaponPartType Part)
+{
+	local int i;
+	local MaterialInterface Mat, ParentMat;
+	local MaterialInstanceConstant MIC, ParentMIC, NewMIC;
+	local array<name> PartMaterialNames;
+
+	PartMaterialNames = GetMaterialNames(Part);
+	
+	if (MeshComp != none)
+	{
+		for (i = 0; i < MeshComp.GetNumElements(); ++i)
+		{
+			Mat = MeshComp.GetMaterial(i);
+			MIC = MaterialInstanceConstant(Mat);
+
+			// Skip over if our material doesn't exist for this part
+			if (PartMaterialNames.Find(MIC.Parent.Name) == INDEX_NONE)
+				continue;
+
+			// It is possible for there to be MITVs in these slots, so check
+			if (MIC != none)
+			{
+				// If this is not a child MIC, make it one. This is done so that the material updates below don't stomp
+				// on each other between units.
+				if (InStr(MIC.Name, "MaterialInstanceConstant") == INDEX_NONE)
+				{
+					NewMIC = new (self) class'MaterialInstanceConstant';
+					NewMIC.SetParent(MIC);
+					MeshComp.SetMaterial(i, NewMIC);
+					MIC = NewMIC;
+				}
+				
+				ParentMat = MIC.Parent;
+				while (!ParentMat.IsA('Material'))
+				{
+					ParentMIC = MaterialInstanceConstant(ParentMat);
+					if (ParentMIC != none)
+						ParentMat = ParentMIC.Parent;
+					else
+						break;
+				}
+
+				UpdateSingleWeaponCustomizationMaterial(MeshComp, MIC, Part);
+			}
+		}
+	}	
+}
+
+// Logic largely based off of UpdateArmorMaterial in XComHumanPawn
+simulated function UpdateSingleWeaponCustomizationMaterial(MeshComponent MeshComp, MaterialInstanceConstant MIC, WeaponPartType Part)
+{
+	local XComLinearColorPalette	Palette;
+	local LinearColor				PrimaryTint, SecondaryTint;
+	local X2BodyPartTemplate		PartTemplate;
+	local X2BodyPartTemplateManager PartManager;	
+	local WeaponCustomizationData	SinglePartWC;
+	local float						Rad;
+
+	PartManager = class'X2BodyPartTemplateManager'.static.GetBodyPartTemplateManager();
+
+	// Fallback to PT_RECEIVER if were on PT_NONE
+	if (Part == PT_NONE)
+		SinglePartWC = arrWeaponCustomizationData[PT_RECEIVER];
+	else
+		SinglePartWC = arrWeaponCustomizationData[Part];
+
+	PatternsContent = none;
+	Palette = `CONTENT.GetColorPalette(ePalette_ArmorTint);
+
+	if (SinglePartWC.iPrimaryTintPaletteIdx != INDEX_NONE)
+	{
+		PrimaryTint = Palette.Entries[SinglePartWC.iPrimaryTintPaletteIdx].Primary;
+		MIC.SetVectorParameterValue('Primary Color', PrimaryTint);
+	}
+	else
+		MIC.SetVectorParameterValue('Primary Color', SinglePartWC.PrimaryTintColor);
+
+	// Merging masks will disable the secondary color (XCom 2 default camo application)
+	if (SinglePartWC.bMergeMasks)
+	{
+		MIC.SetScalarParameterValue('PrimaryAsSecondaryColor', 1);
+	}
+	else
+	{
+		MIC.SetScalarParameterValue('PrimaryAsSecondaryColor', 0);
+
+		if (SinglePartWC.iSecondaryTintPaletteIdx != INDEX_NONE)
+		{
+			SecondaryTint = Palette.Entries[SinglePartWC.iSecondaryTintPaletteIdx].Secondary;
+			MIC.SetVectorParameterValue('Secondary Color', SecondaryTint);
+		}
+		else
+		{
+			MIC.SetVectorParameterValue('Secondary Color', SinglePartWC.SecondaryTintColor);
+		}
+	}
+
+	if (SinglePartWC.TertiaryTintColor.A > 0)
+	{
+		MIC.SetScalarParameterValue('UseTertiaryColor', 1);
+		MIC.SetVectorParameterValue('Tertiary Color', SinglePartWC.TertiaryTintColor);
+	}
+
+	// Modify Emissives if they exist
+	if (SinglePartWC.EmissiveColor.A > 0)
+	{
+		MIC.SetVectorParameterValue('Emissive Color', SinglePartWC.EmissiveColor);
+		MIC.SetScalarParameterValue('EmissiveScale', SinglePartWC.fEmissivePower);
+	}
+	
+	// Swaps main camo mask (Swaps R channel to G channel and vise versa)
+	if (SinglePartWC.bSwapMasks)
+		MIC.SetScalarParameterValue('SwapTintMask', 1);
+	else
+		MIC.SetScalarParameterValue('SwapTintMask', 0);
+	
+	PartTemplate = PartManager.FindUberTemplate(string('Patterns'), SinglePartWC.CamoTemplateName);
+
+	if (PartTemplate != none)
+		PatternsContent = XComPatternsContent(`CONTENT.RequestGameArchetype(PartTemplate.ArchetypeName, self, none, false));
+	
+	if(PatternsContent != none)
+	{
+		if (PatternsContent.Diffuse != none)
+		{
+			MIC.SetScalarParameterValue('PatternUse', 1);	
+			MIC.SetScalarParameterValue('NoPatternTinting', 0);	// Diffuse-based camos (no tinting)	
+			MIC.SetTextureParameterValue('Pattern', PatternsContent.Diffuse);
+		}
+		else if (PatternsContent.Texture != none)
+		{		
+			MIC.SetScalarParameterValue('PatternUse', 1);		
+			MIC.SetTextureParameterValue('Pattern', PatternsContent.Texture);
+		}
+		else
+		{
+			MIC.SetScalarParameterValue('PatternUse', 0);
+			MIC.SetTextureParameterValue('Pattern', none);
+		}
+	}
+
+	if (SinglePartWC.fTexUSize > 0)
+		MIC.SetScalarParameterValue('UScale', SinglePartWC.fTexUSize);
+
+	if (SinglePartWC.fTexVSize > 0)
+		MIC.SetScalarParameterValue('VScale', SinglePartWC.fTexVSize);
+
+	if (SinglePartWC.iTexRot >= 0)
+	{
+		Rad = SinglePartWC.iTexRot * DegToRad;
+
+		MIC.SetScalarParameterValue('Rotation', Rad);
+	}
+}
+
+// Original UpdateMaterial Function but also gathers material names of specific parts for cross reference later on
+simulated function UpdateMaterialsAndGatherList(MeshComponent MeshComp, WeaponPartType Part)
+{
+	local int i;
+	local MaterialInterface Mat, ParentMat;
+	local MaterialInstanceConstant MIC, ParentMIC, NewMIC;
+	
+	if (MeshComp != none)
+	{
+		for (i = 0; i < MeshComp.GetNumElements(); ++i)
+		{
+			Mat = MeshComp.GetMaterial(i);
+			MIC = MaterialInstanceConstant(Mat);
+
+			// It is possible for there to be MITVs in these slots, so check
+			if (MIC != none)
+			{
+				// If this is not a child MIC, make it one. This is done so that the material updates below don't stomp
+				// on each other between units.
+				if (InStr(MIC.Name, "MaterialInstanceConstant") == INDEX_NONE)
+				{
+					NewMIC = new (self) class'MaterialInstanceConstant';
+					NewMIC.SetParent(MIC);
+					MeshComp.SetMaterial(i, NewMIC);
+					MIC = NewMIC;
+				}
+				
+				ParentMat = MIC.Parent;
+				while (!ParentMat.IsA('Material'))
+				{
+					ParentMIC = MaterialInstanceConstant(ParentMat);
+					if (ParentMIC != none)
+						ParentMat = ParentMIC.Parent;
+					else
+						break;
+				}
+
+				StoreToMaterialsArray(MIC.Parent.Name, Part);
+
+				UpdateWeaponMaterial(MeshComp, MIC);
+			}
+		}
+
+		// Start Issue #246
+		DLCInfoUpdateWeaponMaterial(MeshComp);
+		// End Issue #246
+	}
+}
+
+function StoreToMaterialsArray(name MaterialName, WeaponPartType Part)
+{
+	switch(Part)
+	{
+		case PT_RECEIVER:
+			ReceiverMaterialNames.AddItem(MaterialName);
+			break;
+		case PT_BARREL:
+			BarrelMaterialNames.AddItem(MaterialName);
+			break;
+		case PT_HANDGUARD:
+			HandguardMaterialNames.AddItem(MaterialName);
+			break;
+		case PT_STOCK:
+			StockMaterialNames.AddItem(MaterialName);
+			break;
+		case PT_MAGAZINE:
+			MagazineMaterialNames.AddItem(MaterialName);
+			break;
+		case PT_REARGRIP:
+			ReargripMaterialNames.AddItem(MaterialName);
+			break;
+		case PT_UNDERBARREL:
+			UnderbarrelMaterialNames.AddItem(MaterialName);
+			break;
+		case PT_LASER:
+			LaserMaterialNames.AddItem(MaterialName);
+			break;
+		case PT_OPTIC:
+			OpticMaterialNames.AddItem(MaterialName);
+			break;
+		case PT_MUZZLE:
+			MuzzleMaterialNames.AddItem(MaterialName);
+			break;
+		default:
+			break;
+	}
+}
+
+function array<name> GetMaterialNames(WeaponPartType Part)
+{
+	local array<name> EmptyNames;
+
+	switch(Part)
+	{
+		case PT_RECEIVER:
+			return ReceiverMaterialNames;
+			break;
+		case PT_BARREL:
+			return BarrelMaterialNames;
+			break;
+		case PT_HANDGUARD:
+			return HandguardMaterialNames;
+			break;
+		case PT_STOCK:
+			return StockMaterialNames;
+			break;
+		case PT_MAGAZINE:
+			return MagazineMaterialNames;
+			break;
+		case PT_REARGRIP:
+			return ReargripMaterialNames;
+			break;
+		case PT_UNDERBARREL:
+			return UnderbarrelMaterialNames;
+			break;
+		case PT_LASER:
+			return LaserMaterialNames;
+			break;
+		case PT_OPTIC:
+			return OpticMaterialNames;
+			break;
+		case PT_MUZZLE:
+			return MuzzleMaterialNames;
+			break;
+		default:
+			break;
+	}
+
+	return EmptyNames;
+}
+
+// Logic largely based off of UpdateArmorMaterial in XComHumanPawn
+simulated function UpdateWeaponMaterial(MeshComponent MeshComp, MaterialInstanceConstant MIC)
+{
+	// If the player has enabled
+
+	local XComLinearColorPalette Palette;
+	local LinearColor PrimaryTint;
+	local LinearColor SecondaryTint;
+
+	Palette = `CONTENT.GetColorPalette(ePalette_ArmorTint);
+	if (Palette != none)
+	{
+		if(m_kAppearance.iWeaponTint != INDEX_NONE)
+		{
+			PrimaryTint = Palette.Entries[m_kAppearance.iWeaponTint].Primary;
+			MIC.SetVectorParameterValue('Primary Color', PrimaryTint);
+		}
+		if(m_kAppearance.iWeaponDeco != INDEX_NONE)
+		{
+			SecondaryTint = Palette.Entries[m_kAppearance.iWeaponDeco].Secondary;
+			MIC.SetVectorParameterValue('Secondary Color', SecondaryTint);
+		}
+	}
+	
+	if(PatternsContent != none && PatternsContent.Texture != none)
+	{		
+		MIC.SetScalarParameterValue('PatternUse', 1);		
+		MIC.SetTextureParameterValue('Pattern', PatternsContent.Texture);
+	}
+	else
+	{
+		MIC.SetScalarParameterValue('PatternUse', 0);
+		MIC.SetTextureParameterValue('Pattern', none);
+	}
+}
+
 //
 // UTILITIES
 //
@@ -826,6 +1293,9 @@ function CopyWeaponPartTemplates()
 		LaserTemplate				= WeaponGunsmithState.GetPartTemplate(PT_LASER);
 		OpticsTemplate				= WeaponGunsmithState.GetPartTemplate(PT_OPTIC);
 		MuzzleTemplate				= WeaponGunsmithState.GetPartTemplate(PT_MUZZLE);
+
+		// Copy customization data from game state
+		arrWeaponCustomizationData	= WeaponGunsmithState.arrWeaponCustomizationParts;
 	}
 	else
 	{
@@ -869,6 +1339,25 @@ function bool FilterAttachmentFn(WeaponPartAttachment WPNAttachment)
 		case 'ShortBarrelEquipped':
 			Result = IsBarrelShort();
 			break;
+		// V1.005: Allows receivers to attachs scopes with mounts, instead of the default mount
+		case 'OpticWithMountEquipped':
+			Result = (!IsNoOpticsEquipped() && IsOpticWithMountEquipped());
+			break;
+		case 'NoOpticWithMountEquipped':
+			Result = (!IsNoOpticsEquipped() && !IsOpticWithMountEquipped());
+			break;
+		// V1.005: Bipod Handling
+		case 'BipodEquipped':
+			Result = IsBipodEquipped();
+			break;
+		case 'NoBipodEquipped':
+			Result = !IsBipodEquipped();
+			break;
+		case 'ModularStockEquipped':
+			Result = IsModularStockEquipped();
+			break;
+		case 'NoModularStockEquipped':
+			Result = !IsModularStockEquipped();
 	}
 
 	return Result;
@@ -877,6 +1366,11 @@ function bool FilterAttachmentFn(WeaponPartAttachment WPNAttachment)
 function bool IsNoOpticsEquipped()
 {
 	return (OpticsTemplate.DataName == 'PT_SPECIAL_OPTIC_NONE');
+}
+
+function bool IsOpticWithMountEquipped()
+{
+	return (OpticsTemplate.bOptics_WithMount);
 }
 
 function bool IsNoLaserEquipped()
@@ -904,6 +1398,17 @@ function bool IsBarrelShort()
 	return (BarrelTemplate.bBarrel_IsShort);
 }
 
+function bool IsBipodEquipped()
+{
+	return (UnderbarrelTemplate.bUnderbarrel_IsBipod);
+}
+
+function bool IsModularStockEquipped()
+{
+	return (StockTemplate.bStock_Modular);
+}
+
+/*
 function SkeletalMeshComponent GetPartComponent(WeaponPartType PartType)
 {
 	switch(PartType)
@@ -919,6 +1424,7 @@ function SkeletalMeshComponent GetPartComponent(WeaponPartType PartType)
 
 	return none;
 }
+*/
 
 // Sounds
 function LoadFiringSound()

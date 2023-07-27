@@ -13,15 +13,20 @@ struct PartFilteringCriteria
 };
 
 // Panel on center bottom and bottom left
-var UIPanel_WeaponCategoryControl WeaponCategoryControl;
-//var UIPanel WeaponPartSelector;
+var UIPanel_WeaponCategoryControl			WeaponCategoryControl;
+var UIPanel_WeaponCustomization_Color		WeaponCustPanel_Color;
+var UIPanel_WeaponCustomization_Options		WeaponCustPanel_Options;
+var UIPanel_WeaponCustomization_Emissive	WeaponCustPanel_Emissive;
+var UIPanel_WeaponCustomization_Share		WeaponCustPanel_Share;
 
 var WeaponPartType 						SelectedPart;
 
 var XCGS_WeaponGunsmith 				PrevGunsmithState;		// In case the player wants to revert back
 var XCGS_WeaponGunsmith 				CurrentGunsmithState;
+var XCGS_WeaponGunsmith					CustomizeGunsmithState;	// Used for customization only.
 
-var array<bool>							ValidPartCategoryFlag;	// Initialized with PT_MAX slots. Checks if we can access this category.
+var array<bool>							ValidPartCategoryFlag;		// Initialized with PT_MAX slots. Checks if we can access this category.
+var array<bool>							AppearancePartCategoryFlag;	// Same as below but enable/disable categories if we can or can't customize this.
 var array<bool>							InitWeaponUpgradeVPCF;	// Same as above but keeps the references to which parts we've already unlocked via Weapon Upgrades. 
 
 var bool 								bFilteringDisabled;
@@ -30,7 +35,11 @@ var bool 								bFilteringDisabled;
 var bool								bWeaponUpgradesInfluenceParts;
 var bool								bMuzzleUnlocked;
 
+var bool								bScreenState_CamoColorCustomization;
+var int									WeaponNicknames_MaxCharacterLimit;
+
 var int									LastClickedIndex;
+var int									LastClickedCamoIndex;
 var byte								ModeSpinnerValue;
 var int									WeaponCategorySpinnerIndex;
 var bool								bReceiverValidationCheck;	// If not set, receivers need re-evaluation.
@@ -60,6 +69,13 @@ var config array<name>				ValidOpticsUpgrades;
 var config array<name>				ValidLaserUpgrades;
 var config array<name>				ValidMuzzleUpgrades;
 
+// Patterns Cache
+var array<X2BodyPartTemplate>		arrPatternsContent;
+
+// Customization Array cache
+var array<WeaponCustomizationData> arrWeaponCustomizationParts;	// Array of elements that defines what camo/color each part should have
+var string WeaponNickName;
+
 var localized string m_strWPNPartCategory_Receiver;
 var localized string m_strWPNPartCategory_Barrel;
 var localized string m_strWPNPartCategory_Handguard;
@@ -75,14 +91,30 @@ var localized string m_strWPNPartCategory_Muzzle;
 var localized string m_strError_BarrelPreventsMuzzles;
 
 var localized string m_PartSelectorTitle;
+var localized string m_strTitle_Customization;
+
+var localized string m_strTitle_ColorCustomPrimary;
+var localized string m_strTitle_ColorCustomSecondary;
 
 var localized string m_strButton_SwapToWeaponGunsmith;
 var localized string m_strButton_SwapToWeaponUpgrade;
+var localized string m_strButton_SwapToGSCustomize;
+var localized string m_strButton_SwapFromGSCustomize;
 
 var localized string m_strResetWeaponToDefault;
+var localized string m_strResetWeaponCosmeticsToDefault;
 
 var localized string strCustomizationDestruction_DialogueTitle;
 var localized string strCustomizationDestruction_DialogueText;
+
+var localized string strCustomizationUnsavedChanges_DialogueTitle;
+var localized string strCustomizationUnsavedChanges_DialogueText;
+
+var localized string strCustomizationAppearanceReset_DialogueTitle;
+var localized string strCustomizationAppearanceReset_DialogueText;
+
+var localized string strCustomizationRenameMissingLoc_DialogueTitle;
+var localized string strCustomizationRenameMissingLoc_DialogueText;
 
 var localized string m_strSwitchPartCategoryNavHelp;
 
@@ -90,6 +122,8 @@ var localized string m_strSwitchPartCategoryNavHelp;
 
 simulated function InitArmory(StateObjectReference UnitOrWeaponRef, optional name DispEvent, optional name SoldSpawnEvent, optional name NavBackEvent, optional name HideEvent, optional name RemoveEvent, optional bool bInstant = false, optional XComGameState InitCheckGameState)
 {
+	local X2BodyPartTemplateManager PartManager;
+
 	// Default Values
 	SelectedPart = PT_RECEIVER;
 	ModeSpinnerValue = SelectedPart;
@@ -112,9 +146,39 @@ simulated function InitArmory(StateObjectReference UnitOrWeaponRef, optional nam
 	WeaponCategoryControl.SetPosition(1600, 600);
 	WeaponCategoryControl.UpdateValidCategory(ValidPartCategoryFlag);
 
+	WeaponCustPanel_Color = Spawn(class'UIPanel_WeaponCustomization_Color', self).InitColorPanel('CustColorPanel', false);
+	WeaponCustPanel_Color.SetPosition(1580, 10);
+	WeaponCustPanel_Color.OnPrimaryColorChanged		= UpdatePrimaryWeaponColor;
+	WeaponCustPanel_Color.OnSecondaryColorChanged	= UpdateSecondaryWeaponColor;
+	WeaponCustPanel_Color.OnTertiaryColorChanged	= UpdateTertiaryWeaponColor;
+	WeaponCustPanel_Color.Hide();
+
+	WeaponCustPanel_Options = Spawn(class'UIPanel_WeaponCustomization_Options', self).InitOptionsPanel('CustOptionsPanel');
+	WeaponCustPanel_Options.SetPosition(500, 10);
+	WeaponCustPanel_Options.OnTexUSizeChanged		= UpdateTextureUSize;
+	WeaponCustPanel_Options.OnTexVSizeChanged		= UpdateTextureVSize;
+	WeaponCustPanel_Options.OnTexRotSizeChanged		= UpdateTextureRotation;
+	WeaponCustPanel_Options.OnSwapMasksChecked		= UpdateSwapMasks;
+	WeaponCustPanel_Options.OnMergeMasksChecked		= UpdateMergeMasks;
+	WeaponCustPanel_Options.OnApplyAllButtonPressed	= ApplyToAllCustomization;
+	WeaponCustPanel_Options.Hide();
+
+	WeaponCustPanel_Emissive = Spawn(class'UIPanel_WeaponCustomization_Emissive', self).InitEmissivePanel('CustEmissivePanel');
+	WeaponCustPanel_Emissive.SetPosition(1225, 10);
+	WeaponCustPanel_Emissive.OnEmissiveColorChanged	= UpdateEmissiveWeaponColor;
+	WeaponCustPanel_Emissive.OnEmissivePowerChanged	= UpdateEmissivePower;
+	WeaponCustPanel_Emissive.Hide();
+
+	WeaponCustPanel_Share = Spawn(class'UIPanel_WeaponCustomization_Share', self).InitSharePanel('CustSharePanel');
+	WeaponCustPanel_Share.SetPosition(770, 840);
+	WeaponCustPanel_Share.OnShareButtonPressed	= ShareButtonPressed;
+	WeaponCustPanel_Share.OnImportButtonPressed	= ImportButtonPressed;
+	//WeaponCustPanel_Share.Hide();
+
 	`HQPRES.CAMLookAtNamedLocation( CameraTag, 0 );
 
-	// Get the NavBar and add a Switch to Weapon Upgrade button
+	PartManager = class'X2BodyPartTemplateManager'.static.GetBodyPartTemplateManager();
+	PartManager.GetFilteredUberTemplates("Patterns", self, `XCOMGAME.SharedBodyPartFilter.FilterAny, arrPatternsContent);
 
 	WeaponStats.Hide(); 
 	WeaponStats.SetAlpha(0.0f);
@@ -131,6 +195,9 @@ simulated function OnInit()
 	// Adjust list size so it doesn't overlap the customization buttons (Thanks to RustyDios Improved Weapon Upgrade UI mod)
 	// Formula may be wrong
 	SlotsList.SetHeight(SlotsList.Height - (CustomizeList.Height + 24) );
+
+	// V1.005: Cease all conversations until we leave the Gunsmith menu
+	Movie.Pres.m_kNarrativeUIMgr.EndCurrentConversation(true);
 }
 
 function LoadINISettings()
@@ -141,6 +208,8 @@ function LoadINISettings()
 
 	bWeaponUpgradesInfluenceParts	= `MCM_CH_GetValue(class'MCM_GunsmithModOptions_Defaults'.default.bUpgradesUnlockWeaponPartCategory, 
 							class'UIListener_MCMOptions_GS'.default.bUpgradesUnlockWeaponPartCategory);
+
+	WeaponNicknames_MaxCharacterLimit = class'X2DownloadableContentInfo_WotC_GunsmithWeapons'.default.WeaponNicknames_MaxCharacterLimit;
 }
 
 function CreateValidPartCategory(optional X2ConfigWeaponPartTemplate Template)
@@ -148,9 +217,12 @@ function CreateValidPartCategory(optional X2ConfigWeaponPartTemplate Template)
 	// If there's existing data here, clear it
 	// Switching soldiers usually needs re-evaluations
 	if (ValidPartCategoryFlag.Length > 0)
+	{
 		ValidPartCategoryFlag.Length = 0;
-
-	ValidPartCategoryFlag.Add(PT_MAX); 	// Declare PT_MAX size array
+	}
+ 
+ 	// Declare PT_MAX size array
+	ValidPartCategoryFlag.Add(PT_MAX);
 
 	// Dictate if we can access these categories by criteria
 	ValidPartCategoryFlag[PT_RECEIVER]		= true;	// Always editable
@@ -198,6 +270,29 @@ function CreateValidPartCategory(optional X2ConfigWeaponPartTemplate Template)
 		ValidPartCategoryFlag[PT_OPTIC]			= (Template.UnlockedCategories[PT_OPTIC] > 0);
 		ValidPartCategoryFlag[PT_MUZZLE]		= (Template.UnlockedCategories[PT_MUZZLE] > 0) && !CurrentGunsmithState.GetPartTemplate(PT_BARREL).bBarrel_IgnoreValidParts;
 	}
+}
+
+function CreateAppearanceUnlockCategory(XCGS_WeaponGunsmith WepGunsmith)
+{
+	// If there's existing data here, clear it
+	// Switching soldiers usually needs re-evaluations
+	if (AppearancePartCategoryFlag.Length > 0)
+	{
+		AppearancePartCategoryFlag.Length = 0;
+	}
+
+	AppearancePartCategoryFlag.Add(PT_MAX);
+
+	AppearancePartCategoryFlag[PT_RECEIVER]		= ValidPartCategoryFlag[PT_RECEIVER]	 && !WepGunsmith.GetPartTemplate(PT_RECEIVER).bCustomization_Disable;
+	AppearancePartCategoryFlag[PT_BARREL]		= ValidPartCategoryFlag[PT_BARREL]		 && !WepGunsmith.GetPartTemplate(PT_BARREL).bCustomization_Disable;
+	AppearancePartCategoryFlag[PT_HANDGUARD]	= ValidPartCategoryFlag[PT_HANDGUARD]	 && !WepGunsmith.GetPartTemplate(PT_HANDGUARD).bCustomization_Disable;
+	AppearancePartCategoryFlag[PT_STOCK]		= ValidPartCategoryFlag[PT_STOCK]		 && !WepGunsmith.GetPartTemplate(PT_STOCK).bCustomization_Disable;
+	AppearancePartCategoryFlag[PT_MAGAZINE]		= ValidPartCategoryFlag[PT_MAGAZINE]	 && !WepGunsmith.GetPartTemplate(PT_MAGAZINE).bCustomization_Disable;
+	AppearancePartCategoryFlag[PT_REARGRIP]		= ValidPartCategoryFlag[PT_REARGRIP]	 && !WepGunsmith.GetPartTemplate(PT_REARGRIP).bCustomization_Disable;
+	AppearancePartCategoryFlag[PT_UNDERBARREL]	= ValidPartCategoryFlag[PT_UNDERBARREL]	 && !WepGunsmith.GetPartTemplate(PT_UNDERBARREL).bCustomization_Disable;
+	AppearancePartCategoryFlag[PT_LASER]		= ValidPartCategoryFlag[PT_LASER]		 && !WepGunsmith.GetPartTemplate(PT_LASER).bCustomization_Disable;
+	AppearancePartCategoryFlag[PT_OPTIC]		= ValidPartCategoryFlag[PT_OPTIC]		 && !WepGunsmith.GetPartTemplate(PT_OPTIC).bCustomization_Disable;
+	AppearancePartCategoryFlag[PT_MUZZLE]		= ValidPartCategoryFlag[PT_MUZZLE]		 && !WepGunsmith.GetPartTemplate(PT_OPTIC).bCustomization_Disable;
 }
 
 function InitializeWeaponUnlockCategory()
@@ -250,6 +345,7 @@ simulated static function CycleToSoldier(StateObjectReference NewRef)
 	}
 
 	GunsmithScreen.SetWeaponReference(GunsmithScreen.GetUnit().GetItemInSlot(eInvSlot_PrimaryWeapon).GetReference());
+	GunsmithScreen.SetWeaponCustomization();
 
 	if(GunsmithScreen.ActorPawn != none)
 		GunsmithScreen.ActorPawn.SetRotation(CachedRotation);
@@ -261,9 +357,6 @@ simulated static function CycleToSoldier(StateObjectReference NewRef)
 simulated function SetWeaponReference(StateObjectReference NewWeaponRef)
 {
 	local XComGameState_Item Weapon;
-
-	if(CustomizationState != none)
-		SubmitCustomizationChanges();
 
 	WeaponRef = NewWeaponRef;
 	Weapon = XComGameState_Item(`XCOMHISTORY.GetGameStateForObjectID(WeaponRef.ObjectID));
@@ -287,7 +380,7 @@ simulated function SetWeaponReference(StateObjectReference NewWeaponRef)
 	// If we end up in an invalid category, boot the player back to the Receiver part category
 	if (ValidPartCategoryFlag[SelectedPart] == false)
 	{
-		WeaponCategoryControl.OnItemClicked(WeaponCategoryControl.PartsList, 0);
+		WeaponCategoryControl.OnItemClicked(WeaponCategoryControl.OptionsList, 0);
 	}
 
 	ChangeActiveList(SlotsList, true);
@@ -298,6 +391,14 @@ simulated function SetWeaponReference(StateObjectReference NewWeaponRef)
 		UpdateCustomization(none);
 
 	MC.FunctionVoid("animateIn");
+}
+
+// V1.005
+// Override array with new customization data
+function SetWeaponCustomization()
+{
+	arrWeaponCustomizationParts = CurrentGunsmithState.arrWeaponCustomizationParts;
+	WeaponNickName = "";	// Clear previously stored nicknames
 }
 
 simulated function UpdateOwnerSoldier()
@@ -362,8 +463,9 @@ simulated function UpdateSlots()
 	local UIListItemString					ListItem;
 
 	local int i;
-
 	local string FriendlyName;
+
+	local X2BodyPartTemplate		BodyPartTemplate;
 
 	LocTag = XGParamTag(`XEXPANDCONTEXT.FindTag("XGParam"));
 	Weapon = XComGameState_Item(`XCOMHISTORY.GetGameStateForObjectID(WeaponRef.ObjectID));
@@ -372,23 +474,47 @@ simulated function UpdateSlots()
 
 	SlotsList.ClearItems();
 
-	arrParts = GetSelectedWeaponParts();
-
-	foreach arrParts(IterPart, i)
+	// V1.005
+	// Generate list of camos to pick from for this category
+	// Additionally, highlight the currently assigned camo for this weapon part
+	if (bScreenState_CamoColorCustomization)
 	{
-		FriendlyName = (IterPart.FriendlyName != "") ? IterPart.FriendlyName : string(IterPart.DataName);
-
-		ListItem = UIListItemString(SlotsList.CreateItem(class'UIListItemString')).InitListItem(FriendlyName);
-		ListItem.SetWidth(342);
-
-		// If the part matches, highlight
-		if (IterPart.DataName == CurrentGunsmithState.GetPartTemplate(SelectedPart).DataName)
+		foreach arrPatternsContent(BodyPartTemplate, i)
 		{
-			ListItem.ShouldShowGoodState(true);
-			LastClickedIndex = i;
+			FriendlyName = (BodyPartTemplate.DisplayName != "") ? BodyPartTemplate.DisplayName : string(BodyPartTemplate.DataName);
 
-			// Set the part as selected in the list
-			//SlotsList.SetSelectedIndex(i);
+			ListItem = UIListItemString(SlotsList.CreateItem(class'UIListItemString')).InitListItem(FriendlyName);
+			ListItem.SetWidth(342);
+
+			if (BodyPartTemplate.DataName == arrWeaponCustomizationParts[SelectedPart].CamoTemplateName)
+			{
+				ListItem.ShouldShowGoodState(true);
+				LastClickedCamoIndex = i;
+			}
+		}
+	}
+	// Generate Parts List if we're not in customization mode
+	else
+	{
+		// Gather all parts
+		arrParts = GetSelectedWeaponParts();
+
+		foreach arrParts(IterPart, i)
+		{
+			FriendlyName = (IterPart.FriendlyName != "") ? IterPart.FriendlyName : string(IterPart.DataName);
+
+			ListItem = UIListItemString(SlotsList.CreateItem(class'UIListItemString')).InitListItem(FriendlyName);
+			ListItem.SetWidth(342);
+
+			// If the part matches, highlight
+			if (IterPart.DataName == CurrentGunsmithState.GetPartTemplate(SelectedPart).DataName)
+			{
+				ListItem.ShouldShowGoodState(true);
+				LastClickedIndex = i;
+
+				// Set the part as selected in the list
+				//SlotsList.SetSelectedIndex(i);
+			}
 		}
 	}
 
@@ -402,11 +528,13 @@ simulated function UpdateSlots()
 	`XEVENTMGR.TriggerEvent('UIArmory_WeaponGunsmith_SlotsUpdated', SlotsList, self, none);
 }
 
+// Refreshes weapon pawn, beware!
 simulated function PreviewUpgrade(UIList ContainerList, int ItemIndex)
 {
 	local XComGameState_Item 				Weapon;
 	local XComGameState 					ChangeState;
 	local XCGS_WeaponGunsmith				UpdatedGunsmithState;
+	local array<WeaponCustomizationData>	TempArray;
 
 	local Vector							PreviousLocation;
 	local array<X2ConfigWeaponPartTemplate> arrParts;
@@ -417,13 +545,25 @@ simulated function PreviewUpgrade(UIList ContainerList, int ItemIndex)
 	}
 
 	`XSTRATEGYSOUNDMGR.PlaySoundEvent("Weapon_Attachement_Upgrade");
+
+	if (bScreenState_CamoColorCustomization)
+	{
+		// Do not overwrite the main array, just submit a temporary array into SetAppearance()
+		TempArray = arrWeaponCustomizationParts;
+		TempArray[SelectedPart].CamoTemplateName = arrPatternsContent[ItemIndex].DataName;
+
+		// Update Appearance and then exit, do not refresh the visualizer!
+		XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(TempArray);
+		return;
+	}
+
 	ChangeState = class'XComGameStateContext_ChangeContainer'.static.CreateChangeState("Visualize Weapon Upgrade");
 
 	Weapon 			  		= XComGameState_Item(ChangeState.ModifyStateObject(class'XComGameState_Item', WeaponRef.ObjectID));
 	
 	UpdatedGunsmithState 	= XCGS_WeaponGunsmith(Weapon.FindComponentObject(class'XCGS_WeaponGunsmith'));
 	UpdatedGunsmithState	= XCGS_WeaponGunsmith(ChangeState.ModifyStateObject(UpdatedGunsmithState.Class, UpdatedGunsmithState.ObjectID));
-	
+
 	arrParts = GetSelectedWeaponParts();
 
 	// If we only have the Receiver unlocked, then force the weapon to reset to default parts when swapping receivers
@@ -467,6 +607,56 @@ simulated function PreviewUpgrade(UIList ContainerList, int ItemIndex)
 	`XCOMHISTORY.CleanupPendingGameState(ChangeState);
 }
 
+// Same as above but only rebuild the current Weapon Visualizer 
+function RebuildCurrentVisualizer()
+{
+	local XComGameState_Item 				Weapon;
+	local XComGameState 						ChangeState;
+	local XCGS_WeaponGunsmith				UpdatedGunsmithState;
+
+	local Vector							PreviousLocation;
+	
+	ChangeState = class'XComGameStateContext_ChangeContainer'.static.CreateChangeState("Rebuild Visualizer");
+
+	Weapon 			  		= XComGameState_Item(ChangeState.ModifyStateObject(class'XComGameState_Item', WeaponRef.ObjectID));
+	
+	UpdatedGunsmithState 	= XCGS_WeaponGunsmith(Weapon.FindComponentObject(class'XCGS_WeaponGunsmith'));
+	UpdatedGunsmithState	= XCGS_WeaponGunsmith(ChangeState.ModifyStateObject(UpdatedGunsmithState.Class, UpdatedGunsmithState.ObjectID));
+
+	// Start Issue #39
+	/// HL-Docs: ref:Bugfixes; issue:39
+	/// Create weapon pawn before setting PawnLocationTag so that the weapon can rotate when previewing weapon upgrades.
+	PreviousLocation = ActorPawn.Location;
+
+	// Hacked version so that Gunsmith parts get updated properly when selecting them
+	CreatePreviewGunsmithWeaponPawn(Weapon, UpdatedGunsmithState, ActorPawn.Rotation);
+	ActorPawn.SetLocation(PreviousLocation);
+	MouseGuard.SetActorPawn(ActorPawn, ActorPawn.Rotation);
+	// End Issue #39
+
+	if(ActiveList != UpgradesList)
+	{
+		MouseGuard.SetActorPawn(ActorPawn); //When we're not selecting an upgrade, let the user spin the weapon around
+		RestoreWeaponLocation();
+	}
+	else
+	{
+		MouseGuard.SetActorPawn(None); //Otherwise, grab the rotation to show them the upgrade as they select it
+	}
+	// Start Issue #39
+	// Create weapon pawn if the upgrade template does not exist to preserve the vanilla WOTC behavior
+	// in case something goes wrong.
+	//if (UpgradeTemplate == none)
+	//{
+	//	PreviousLocation = ActorPawn.Location;
+	//	CreateWeaponPawn(Weapon, ActorPawn.Rotation);
+	//	ActorPawn.SetLocation(PreviousLocation);
+	//	MouseGuard.SetActorPawn(ActorPawn, ActorPawn.Rotation);
+	//}
+	// End Issue #39
+	`XCOMHISTORY.CleanupPendingGameState(ChangeState);
+}
+
 simulated function OnItemClicked(UIList ContainerList, int ItemIndex)
 {
 	local UIListItemString				Item;
@@ -475,7 +665,9 @@ simulated function OnItemClicked(UIList ContainerList, int ItemIndex)
 	if(ContainerList != ActiveList) return;
 
 	// Make clicking noise but do nothing else
-	if (LastClickedIndex == ItemIndex)
+	if ((!bScreenState_CamoColorCustomization && LastClickedIndex == ItemIndex) || 
+		(bScreenState_CamoColorCustomization && LastClickedCamoIndex == ItemIndex)
+		)
 	{
 		`XSTRATEGYSOUNDMGR.PlaySoundEvent("Weapon_Attachement_Upgrade_Select");
 		return;
@@ -489,48 +681,66 @@ simulated function OnItemClicked(UIList ContainerList, int ItemIndex)
 		return;
 	}
 
-	//bsg-hlee (05.10.17): Only let upgrades be selected if there are actually upgrades avail.
-	if(ActiveList.ItemCount > 0)
-	{
-		// Install the upgrade
-		PartTemplate = InstallPartOnWeapon(ItemIndex);
+	// V1.005:
+	// Only let items be selected if there are actually upgrades avail.
+	if (ActiveList.ItemCount == 0)
+		return;
 
+	// Set the camo on this weapon
+	if (bScreenState_CamoColorCustomization)
+	{
+		UpdateWeaponCamo(arrPatternsContent[ItemIndex].DataName);
+		
 		// Make the button green
 		Item.ShouldShowGoodState(true);
 
-		UIListItemString(ContainerList.GetItem(LastClickedIndex)).ShouldShowGoodState(false);
+		UIListItemString(ContainerList.GetItem(LastClickedCamoIndex)).ShouldShowGoodState(false);
+
+		LastClickedCamoIndex = ItemIndex;
+
+		`XSTRATEGYSOUNDMGR.PlaySoundEvent("StrategyUI_Medkit_Equip");	// Spray sound!
 		
-		LastClickedIndex = ItemIndex;
+		return;
+	}
+	
+	// Install the upgrade
+	PartTemplate = InstallPartOnWeapon(ItemIndex);
 
-		// Changing receivers may change the weapon name
-		UpdateOwnerSoldier();
+	// Make the button green
+	Item.ShouldShowGoodState(true);
 
-		// Equipping a new barrel might prevent swapping muzzles
-		// Only do this if the slot is unlocked
-		if (!bFilteringDisabled)
+	UIListItemString(ContainerList.GetItem(LastClickedIndex)).ShouldShowGoodState(false);
+	
+	LastClickedIndex = ItemIndex;
+
+	// Changing receivers may change the weapon name
+	UpdateOwnerSoldier();
+
+	// Equipping a new barrel might prevent swapping muzzles
+	// Only do this if the slot is unlocked
+	if (!bFilteringDisabled)
+	{
+		// Equipping Receivers can change what is customizable
+		if (SelectedPart == PT_RECEIVER)
 		{
-			// Equipping Receivers can change what is customizable
-			if (SelectedPart == PT_RECEIVER)
-			{
-				SelectedReceiverTemplate = PartTemplate;
-				CreateValidPartCategory(SelectedReceiverTemplate);
-			}
-
-			if (bMuzzleUnlocked)
-			{
-				ValidPartCategoryFlag[PT_MUZZLE] = true;
-				
-				if (SelectedPart == PT_BARREL && PartTemplate.bBarrel_IgnoreValidParts)
-				{
-					ValidPartCategoryFlag[PT_MUZZLE] = false;
-				}
-			}
+			SelectedReceiverTemplate = PartTemplate;
+			CreateValidPartCategory(SelectedReceiverTemplate);
 		}
 
-		WeaponCategoryControl.UpdateValidCategory(ValidPartCategoryFlag);
-		
-		`XSTRATEGYSOUNDMGR.PlaySoundEvent("Weapon_Attachement_Upgrade_Select");
+		if (bMuzzleUnlocked)
+		{
+			ValidPartCategoryFlag[PT_MUZZLE] = true;
+			
+			if (SelectedPart == PT_BARREL && PartTemplate.bBarrel_IgnoreValidParts)
+			{
+				ValidPartCategoryFlag[PT_MUZZLE] = false;
+			}
+		}
 	}
+
+	WeaponCategoryControl.UpdateValidCategory(ValidPartCategoryFlag);
+
+	`XSTRATEGYSOUNDMGR.PlaySoundEvent("Weapon_Attachement_Upgrade_Select");
 }
 
 simulated function UpdateNavHelp()
@@ -540,11 +750,21 @@ simulated function UpdateNavHelp()
 	local XGParamTag LocTag;
 
 	NavHelp.ClearButtonHelp();
+
 	NavHelp.AddBackButton(OnCancel);
 
-	// TODO: Figure out button scheme
-	NavHelp.AddLeftHelp(m_strButton_SwapToWeaponUpgrade, , SwapToWeaponUpgradeScreen);
-	
+	if (!bScreenState_CamoColorCustomization)
+	{
+		// TODO: Figure out button scheme
+		NavHelp.AddLeftHelp(m_strButton_SwapToWeaponUpgrade, , SwapToWeaponUpgradeScreen);
+		NavHelp.AddLeftHelp(m_strButton_SwapToGSCustomize, , SwapToCamoColorCustomizationScreen);
+	}
+	else
+	{
+		NavHelp.AddContinueButton(ExitCustomizationScreenAndSave, 'X2ContinueButton'); // V1.005: Add big green button on the bottom when in customization mode
+		NavHelp.ContinueButton.SetText(m_strButton_SwapFromGSCustomize); // HACK: Edit the big continue button to change text on it
+	}	
+
 	if(`ISCONTROLLERACTIVE)
 	{
 		if( IsAllowedToCycleSoldiers() && class'UIUtilities_Strategy'.static.HasSoldiersToCycleThrough(UnitReference, CanCycleTo) )
@@ -591,33 +811,353 @@ simulated function UpdateCustomization(UIPanel DummyParam)
 
 	// Clear any residual items
 	CustomizeList.ClearItems();
-
 	i = 0;
 
-	// Blank Item to absorb weird bug with input box opening as first element
-	GetCustomizeItem(i).UpdateDataDescription("DONOTSHOW").SetDisabled(true);
-	GetCustomizeItem(i).DisableNavigation();
-	GetCustomizeItem(i++).Hide();
+	if (bScreenState_CamoColorCustomization)
+	{
+		GetCustomizeItem(i++).UpdateDataDescription(m_strCustomizeWeaponName, OpenWeaponNameInputBox);
+	}
+	else
+	{
+		// Blank Item to absorb Mod Everything Reloaded override
+		GetCustomizeItem(i).UpdateDataDescription("DONOTSHOW").SetDisabled(true);
+		GetCustomizeItem(i).DisableNavigation();
+		GetCustomizeItem(i).OnClickDelegate = none;
+		GetCustomizeItem(i++).Hide();
+	}
 
 	// WEAPON CATEGORY
 	//-----------------------------------------------------------------------------------------
 	WeaponCategorySpinnerIndex = i;
 	GetCustomizeItem(i++).UpdateDataSpinner("", GetCategoryLabelString(SelectedPart, SelectedReceiverTemplate), OnSpinnerCategoryChanged);
 
-	// RESET WEAPON CUSTOMIZATION
-	// Resets weapon to first valid parts on the weapon template
-	//-----------------------------------------------------------------------------------------
-	GetCustomizeItem(i++).UpdateDataDescription(m_strResetWeaponToDefault, OnWeaponCustomizationResetClicked);
+	if (bScreenState_CamoColorCustomization)
+	{
+		// RESET WEAPON CUSTOMIZATION (CAMO, NAME, TINT, ETC.)
+		// Resets weapon to base TAppearance settings on pawn with no camo selected
+		//-----------------------------------------------------------------------------------------
+		GetCustomizeItem(i++).UpdateDataDescription(m_strResetWeaponCosmeticsToDefault, OnWeaponAppearanceResetClicked);
+	}
+	else
+	{
+		// RESET WEAPON CUSTOMIZATION (RECEIVER, BARREL, ETC.)
+		// Resets weapon to first valid parts on the weapon template
+		//-----------------------------------------------------------------------------------------
+		GetCustomizeItem(i++).UpdateDataDescription(m_strResetWeaponToDefault, OnWeaponCustomizationResetClicked);
+	}
 
 	CustomizeList.SetPosition(CustomizationListX, CustomizationListY - CustomizeList.ShrinkToFit() - CustomizationListYPadding);
+
+	// V1.005: Fix MER's override on UpdateCustomization()
+	SetTimer(2.0f, false, nameof(FixMEROverride));
 }
 
+function FixMEROverride()
+{
+	if (bScreenState_CamoColorCustomization)
+	{
+		if (GetCustomizeItem(0).OnClickDelegate != OpenWeaponNameInputBox)
+			GetCustomizeItem(0).OnClickDelegate = OpenWeaponNameInputBox;
+	}
+	else
+	{
+		// Blank Item to absorb Mod Everything Reloaded override
+		GetCustomizeItem(0).OnClickDelegate = none;
+	}
+}
+
+// V1.005: Bring back weapon naming in Customization Screen
 simulated function OpenWeaponNameInputBox()
 {
-	// Do nothing because clicking Weapon Category somehow brings up the input name box???
-	return;
+	local TInputDialogData kData;
+	local XComGameState_Item Weapon;
+	local TDialogueBoxData DialogData;
+
+	// Do nothing if we're not in the proper state
+	if (!bScreenState_CamoColorCustomization)
+		return;
+
+	Weapon = XComGameState_Item(`XCOMHISTORY.GetGameStateForObjectID(WeaponRef.ObjectID));
+
+	// If the FriendlyName is missing, warn the player
+	if (Weapon.GetMyTemplate().FriendlyName == "")
+	{
+		Movie.Pres.PlayUISound(eSUISound_MenuClickNegative);
+
+		// Create UIDialogBox warning player that this item has no friendly name set
+		DialogData.eType		= eDialog_Warning;
+		DialogData.strTitle		= default.strCustomizationRenameMissingLoc_DialogueTitle;
+		DialogData.strText		= default.strCustomizationRenameMissingLoc_DialogueText $ Weapon.GetMyTemplate().GetItemFriendlyName();
+		DialogData.strAccept	= class'UIUtilities_Text'.default.m_strGenericOK;
+		//DialogData.strCancel	= "";
+		Movie.Pres.UIRaiseDialog(DialogData);
+
+		return;
+	}
+
+	kData.strTitle = m_strCustomizeWeaponName;
+	kData.iMaxChars = WeaponNicknames_MaxCharacterLimit;
+	kData.strInputBoxText = Weapon.Nickname;
+	kData.fnCallback = OnNameInputBoxClosed;
+
+	Movie.Pres.UIInputDialog(kData);
 }
 
+// Update the name but don't submit the new name until the player leaves customization!
+function OnNameInputBoxClosed(string text)
+{
+	WeaponNickName	= text;
+
+	// Nicknames take precedence
+	SetWeaponName(WeaponNickName);
+}
+
+function VirtualKeyboard_OnNameInputBoxAccepted(string text, bool bWasSuccessful)
+{
+	if(bWasSuccessful && text != "") //ADDED_SUPPORT_FOR_BLANK_STRINGS - JTA 2016/6/9
+	{
+		OnNameInputBoxClosed(text);
+	}
+}
+
+// Empty as intended
+function VirtualKeyboard_OnNameInputBoxCancelled() { }
+
+//
+// Customization State
+//
+simulated function CreateCustomizationState()
+{
+	local int ObjectID;
+	if (CustomizationState == none) // Only create a new customization state if one doesn't already exist
+	{
+		CustomizationState = class'XComGameStateContext_ChangeContainer'.static.CreateChangeState("Weapon Gunsmith Customize");
+	}
+	
+	UpdatedWeapon			= XComGameState_Item(CustomizationState.ModifyStateObject(class'XComGameState_Item', WeaponRef.ObjectID));
+	ObjectID				= XCGS_WeaponGunsmith(UpdatedWeapon.FindComponentObject(class'XCGS_WeaponGunsmith')).ObjectID;
+	CustomizeGunsmithState	= XCGS_WeaponGunsmith(CustomizationState.ModifyStateObject(class'XCGS_WeaponGunsmith', ObjectID));
+}
+
+simulated function CreateCustomizationStateWithNoChangeContainer()
+{
+	UpdatedWeapon				= XComGameState_Item(`XCOMHISTORY.GetGameStateForObjectID(WeaponRef.ObjectID));
+	CustomizeGunsmithState		= XCGS_WeaponGunsmith(UpdatedWeapon.FindComponentObject(class'XCGS_WeaponGunsmith'));
+	arrWeaponCustomizationParts = CustomizeGunsmithState.arrWeaponCustomizationParts;
+}
+
+simulated function CleanupCustomizationState()
+{
+	// Save changes to state
+	if (CustomizationState != none) // Only cleanup the CustomizationState if it isn't already none
+	{
+		`XCOMHISTORY.CleanupPendingGameState(CustomizationState);
+	}
+
+	CustomizationState		= none;
+	UpdatedWeapon			= none;
+	CustomizeGunsmithState	= none;
+}
+
+simulated function SubmitCustomizationChanges()
+{
+	CreateCustomizationState();
+
+	// Save changes to state
+	CustomizeGunsmithState.arrWeaponCustomizationParts = arrWeaponCustomizationParts;
+	UpdatedWeapon.Nickname = WeaponNickName;
+	
+	// Update Current Gamestate
+	CurrentGunsmithState = CustomizeGunsmithState;
+
+	`GAMERULES.SubmitGameState(CustomizationState);
+
+	// Update Reference so the weapon appearance get updated, and menus update accordingly
+	SetWeaponReference(UpdatedWeapon.GetReference());
+	SetWeaponCustomization();
+
+	// Clear everything else
+	CustomizationState		= none;
+	UpdatedWeapon			= none;
+	CustomizeGunsmithState	= none;
+}
+
+function UpdateWeaponCamo(name CamoTemplateName)
+{
+	arrWeaponCustomizationParts[SelectedPart].CamoTemplateName = CamoTemplateName;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdatePrimaryWeaponColor(LinearColor NewColor)
+{
+	arrWeaponCustomizationParts[SelectedPart].PrimaryTintColor = NewColor;
+	arrWeaponCustomizationParts[SelectedPart].iPrimaryTintPaletteIdx = -1;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdateSecondaryWeaponColor(LinearColor NewColor)
+{
+	arrWeaponCustomizationParts[SelectedPart].SecondaryTintColor = NewColor;
+	arrWeaponCustomizationParts[SelectedPart].iSecondaryTintPaletteIdx = -1;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdateTertiaryWeaponColor(LinearColor NewColor)
+{
+	// Tell the UpdateSingleWeaponCustomizationMaterial() function to use this color
+	NewColor.A = 1.0f;
+
+	arrWeaponCustomizationParts[SelectedPart].TertiaryTintColor = NewColor;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdateEmissiveWeaponColor(LinearColor NewColor)
+{
+	// Tell the UpdateSingleWeaponCustomizationMaterial() function to use this color
+	NewColor.A = 1.0f;
+
+	arrWeaponCustomizationParts[SelectedPart].EmissiveColor = NewColor;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdateEmissivePower(float newEmsPower)
+{
+	arrWeaponCustomizationParts[SelectedPart].fEmissivePower = newEmsPower;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdateTextureUSize(float newUSize)
+{
+	arrWeaponCustomizationParts[SelectedPart].fTexUSize = newUSize;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdateTextureVSize(float newVSize)
+{
+	arrWeaponCustomizationParts[SelectedPart].fTexVSize = newVSize;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdateTextureRotation(int newTexRot)
+{
+	arrWeaponCustomizationParts[SelectedPart].iTexRot = newTexRot;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdateSwapMasks(bool bToggle)
+{
+	arrWeaponCustomizationParts[SelectedPart].bSwapMasks = bToggle;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function UpdateMergeMasks(bool bToggle)
+{
+	arrWeaponCustomizationParts[SelectedPart].bMergeMasks = bToggle;
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+}
+
+function ApplyToAllCustomization()
+{
+	local WeaponCustomizationData	ThisWeaponCustomizationPart;
+	local int i;
+
+	ThisWeaponCustomizationPart = arrWeaponCustomizationParts[SelectedPart];
+
+	for (i = 0; i < PT_MAX; ++i)
+	{
+		if (i == SelectedPart) continue;
+
+		arrWeaponCustomizationParts[i] = ThisWeaponCustomizationPart;
+	}
+
+	XGWeapon_Platform_AR(XComWeapon(ActorPawn).m_kGameWeapon).SetAppearanceIndividual(arrWeaponCustomizationParts);
+	
+	`XSTRATEGYSOUNDMGR.PlaySoundEvent("StrategyUI_Medkit_Equip");	// Spray sound!
+}
+
+function ShareButtonPressed()
+{
+	local string Str, EncryptedText;
+
+	Str = class'X2ConfigWeaponAlphaTemplate'.static.WriteJSONForNetwork(XComGameState_Item(`XCOMHISTORY.GetGameStateForObjectID(WeaponRef.ObjectID)));
+	
+	EncryptedText = class'WebRequest'.static.EncodeBase64(Str);
+
+	`LOCALPLAYERCONTROLLER.CopyToClipboard(EncryptedText);
+}
+
+function ImportButtonPressed()
+{
+	local string Clipboard, JSONStr;
+	local StateObjectReference NewWeapon;
+
+	Clipboard = `LOCALPLAYERCONTROLLER.PasteFromClipboard();
+	JSONStr = class'WebRequest'.static.DecodeBase64(Clipboard);
+
+	// Import the weapon
+	NewWeapon = class'X2ConfigWeaponAlphaTemplate'.static.ImportJSONFromNetwork(JSONStr, bFilteringDisabled, true, WeaponRef, CurrentGunsmithState);
+
+	if (NewWeapon.ObjectID > 0)
+	{
+		SetWeaponReference(NewWeapon);
+		class'UIPanel_WeaponCustomization_Share'.static.ImportSuccessDialogue();
+	}
+}
+
+// When there's a change, update all elements of the UI
+function UpdateCustomizationUI(X2ConfigWeaponPartTemplate CurrentPartTemplate)
+{
+	WeaponCustPanel_Color.UpdatePrimaryColor(arrWeaponCustomizationParts[SelectedPart].PrimaryTintColor);
+	WeaponCustPanel_Color.UpdateSecondaryColor(arrWeaponCustomizationParts[SelectedPart].SecondaryTintColor);
+
+	if (CurrentPartTemplate.bCustomization_TertiaryColor)
+	{
+		WeaponCustPanel_Color.UpdateTertiaryColor(arrWeaponCustomizationParts[SelectedPart].TertiaryTintColor);
+		WeaponCustPanel_Color.EnableTertiaryColorPanel();
+	}
+	else
+	{
+		WeaponCustPanel_Color.DisableTertiaryColorPanel();
+	}
+
+	if (CurrentPartTemplate.bCustomization_Emissive)
+	{
+		WeaponCustPanel_Emissive.UpdateEmissiveColor(arrWeaponCustomizationParts[SelectedPart].EmissiveColor);
+		WeaponCustPanel_Emissive.UpdateEmissivePower(arrWeaponCustomizationParts[SelectedPart].fEmissivePower);
+		WeaponCustPanel_Emissive.Show();
+	}
+	else
+		WeaponCustPanel_Emissive.Hide();
+
+	WeaponCustPanel_Options.UpdateBooleans(arrWeaponCustomizationParts[SelectedPart].bSwapMasks, arrWeaponCustomizationParts[SelectedPart].bMergeMasks);
+	WeaponCustPanel_Options.UpdateUSize(arrWeaponCustomizationParts[SelectedPart].fTexUSize);
+	WeaponCustPanel_Options.UpdateVSize(arrWeaponCustomizationParts[SelectedPart].fTexVSize);
+	WeaponCustPanel_Options.UpdateRotAngle(arrWeaponCustomizationParts[SelectedPart].iTexRot);
+}
+
+function DestroyCustomizationChanges()
+{
+	`XCOMHISTORY.CleanupPendingGameState(CustomizationState);
+
+	CustomizationState		= none;
+	UpdatedWeapon			= none;
+	CustomizeGunsmithState	= none;
+}
+
+//
+// Weapon Part Reset
+//
 function OnWeaponCustomizationResetClicked()
 {
 	local TDialogueBoxData DialogData;
@@ -639,6 +1179,10 @@ function ConfirmResetWeaponCustomizationCallback(Name eAction)
 	local XCGS_WeaponGunsmith					NewGunsmithState;
 	local XComGameState_Item 					Weapon;
 
+	//V1.005: Actually check if the player hit the accept button
+	if( eAction != 'eUIAction_Accept' )
+		return;
+
 	// Create change context
 	ChangeContainer = class'XComGameStateContext_ChangeContainer'.static.CreateEmptyChangeContainer("Reset Weapon Gunsmith Visual To Defaults");
 	ChangeState = `XCOMHISTORY.CreateNewGameState(true, ChangeContainer);
@@ -653,6 +1197,11 @@ function ConfirmResetWeaponCustomizationCallback(Name eAction)
 
 	CurrentGunsmithState = NewGunsmithState;
 
+	// V1.005: Reset customization
+	NewGunsmithState.arrWeaponCustomizationParts.Length = 0;
+	NewGunsmithState.SetDefaultCustomizationState(Weapon.WeaponAppearance);
+	arrWeaponCustomizationParts = NewGunsmithState.arrWeaponCustomizationParts;
+
 	`GAMERULES.SubmitGameState(ChangeState);
 
 	// Swap back to Receiver category
@@ -662,7 +1211,7 @@ function ConfirmResetWeaponCustomizationCallback(Name eAction)
 	SelectedReceiverTemplate = CurrentGunsmithState.GetPartTemplate(PT_RECEIVER);
 
 	// Force a refresh
-	PreviewUpgrade(SlotsList, 0);
+	RebuildCurrentVisualizer();
 
 	// Changing receivers may change the weapon name
 	UpdateOwnerSoldier();
@@ -684,7 +1233,12 @@ function OnSpinnerCategoryChanged(UIListItemSpinner SpinnerControl, int Directio
 
 	while (!CategoryFound)
 	{
-		if (ValidPartCategoryFlag[WeaponPartType(ModeSpinnerValue)] == true)
+		if (bScreenState_CamoColorCustomization && AppearancePartCategoryFlag[WeaponPartType(ModeSpinnerValue)] == true)
+		{
+			SelectedPart = WeaponPartType(ModeSpinnerValue); 
+			break;
+		}
+		else if (!bScreenState_CamoColorCustomization && ValidPartCategoryFlag[WeaponPartType(ModeSpinnerValue)] == true)
 		{
 			SelectedPart = WeaponPartType(ModeSpinnerValue); 
 			break;
@@ -695,8 +1249,11 @@ function OnSpinnerCategoryChanged(UIListItemSpinner SpinnerControl, int Directio
 
 	Movie.Pres.PlayUISound(eSUISound_MenuSelect);
 
+	//SpinnerControl.SetValue(GetCategoryLabelString(SelectedPart, SelectedReceiverTemplate));
+	//UpdateCustomization(none); // 5/16/23: Force an update on the menu instead of simply updating the Spinner 
 	SpinnerControl.SetValue(GetCategoryLabelString(SelectedPart, SelectedReceiverTemplate));
-	WeaponCategoryControl.OnItemClicked(WeaponCategoryControl.PartsList, ModeSpinnerValue - 1);
+
+	WeaponCategoryControl.OnItemClicked(WeaponCategoryControl.OptionsList, ModeSpinnerValue - 1);
 
 	// Force a refresh on the slots
 	UpdateSlots();
@@ -727,12 +1284,17 @@ function SwitchWeaponCategory(WeaponPartType NewPart, optional bool bForceChange
 
 	ModeSpinnerValue = int(SelectedPart);
 
+	if (bScreenState_CamoColorCustomization)
+	{
+		UpdateCustomizationUI(CustomizeGunsmithState.GetPartTemplate(SelectedPart));
+	}
+
 	// Force a refresh on the slots
 	UpdateSlots();
 
 	if (bForceChangeWeaponCategory)
 	{
-		WeaponCategoryControl.OnItemClicked(WeaponCategoryControl.PartsList, ModeSpinnerValue);
+		WeaponCategoryControl.OnItemClicked(WeaponCategoryControl.OptionsList, ModeSpinnerValue);
 	}
 }
 
@@ -745,6 +1307,15 @@ simulated static function bool CanCycleTo(XComGameState_Unit Unit)
 
 	// Logic taken from UIArmory_MainMenu
 	return super.CanCycleTo(Unit) && X2ConfigWeaponAlphaTemplate(Weapon.GetMyTemplate()) != none;
+}
+
+// V1.005: Function prevents cycling soldiers
+simulated function bool IsAllowedToCycleSoldiers()
+{
+	if (bScreenState_CamoColorCustomization)
+		return false;
+
+	return true;
 }
 
 // Close this screen and swap to Weapon Upgrade screen
@@ -811,16 +1382,168 @@ simulated function bool OnUnrealCommand(int cmd, int arg)
 
 			case class'UIUtilities_Input'.const.FXS_BUTTON_LTRIGGER:
 			case class'UIUtilities_Input'.const.FXS_KEY_D:
-				OnSpinnerCategoryChanged(GetCustomizeItem(0).Spinner, -1);
+				OnSpinnerCategoryChanged(GetCustomizeItem(WeaponCategorySpinnerIndex).Spinner, -1); // V1.005: Switching weapon part categories instead
 				break;
 			case class'UIUtilities_Input'.const.FXS_BUTTON_RTRIGGER:
 			case class'UIUtilities_Input'.const.FXS_KEY_A:
-				OnSpinnerCategoryChanged(GetCustomizeItem(0).Spinner, 1);
+				OnSpinnerCategoryChanged(GetCustomizeItem(WeaponCategorySpinnerIndex).Spinner, 1);
 				break;
 		}
 	}
 
 	return super.OnUnrealCommand(cmd, arg);
+}
+
+simulated function OnCancel()
+{
+	// V1.005: Warn the player that changes will not be committed if they exit before actually exiting customization
+	if (bScreenState_CamoColorCustomization)
+	{
+		OnWeaponCustomizationUnSavedChangesClicked();
+	}
+	else
+	{
+		`XCOMGRI.DoRemoteEvent(DisableWeaponLightingEvent);
+
+		// V1.005: Start playing any narratives in queue
+		Movie.Pres.m_kNarrativeUIMgr.CheckConversationFullyLoaded();
+		Movie.Pres.m_kNarrativeUIMgr.CheckForNextConversation();
+
+		super.OnCancel(); // exits screen
+	}
+}
+
+// V1.005: Customization Entrypoint
+function SwapToCamoColorCustomizationScreen()
+{
+	if (!bScreenState_CamoColorCustomization)
+	{
+		bScreenState_CamoColorCustomization = true;
+		
+		// Fixes the weapon not changing to its current appearance
+		RebuildCurrentVisualizer();
+		
+		// Set our game object so that everything updates
+		CreateCustomizationStateWithNoChangeContainer();
+
+		CreateAppearanceUnlockCategory(CustomizeGunsmithState);
+
+		WeaponCategoryControl.UpdateValidCategory(AppearancePartCategoryFlag);
+
+		UpdateCustomizationUI(CustomizeGunsmithState.GetPartTemplate(SelectedPart));
+
+		WeaponCustPanel_Color.Show();
+		WeaponCustPanel_Options.Show();
+		WeaponCustPanel_Share.Hide();
+	}
+	else
+	{
+		bScreenState_CamoColorCustomization = false;
+
+		WeaponCustPanel_Color.Hide();
+		WeaponCustPanel_Options.Hide();
+		WeaponCustPanel_Emissive.Hide();
+		WeaponCustPanel_Share.Show();
+	}
+
+	// Force a refresh on the slots
+	UpdateSlots();
+
+	// Force an update on the nav help
+	UpdateNavHelp();
+
+	// Preview the first selected camo
+	PreviewUpgrade(SlotsList, 0);
+
+	// Force an update on the customization screen
+	UpdateCustomization(none);
+}
+
+// When the big button is pressed save customization settings
+function ExitCustomizationScreenAndSave()
+{
+	// Save settings
+	SubmitCustomizationChanges();
+
+	SwapToCamoColorCustomizationScreen();
+}
+
+// V1.005: Customization Dialog Warning
+function OnWeaponCustomizationUnSavedChangesClicked()
+{
+	local TDialogueBoxData DialogData;
+
+	// Create UIDialogBox warning player that weapon customization will be reset to defaults including appearance.
+	DialogData.eType		= eDialog_Warning;
+	DialogData.strTitle		= default.strCustomizationUnsavedChanges_DialogueTitle;
+	DialogData.strText		= default.strCustomizationUnsavedChanges_DialogueText;
+	DialogData.strAccept	= class'UIUtilities_Text'.default.m_strGenericYes;
+	DialogData.strCancel	= class'UIUtilities_Text'.default.m_strGenericNO;
+	DialogData.fnCallback = ConfirmExitWeaponCustomizationNoChangesCallback;
+	Movie.Pres.UIRaiseDialog(DialogData);
+}
+
+function ConfirmExitWeaponCustomizationNoChangesCallback(Name eAction)
+{
+	//Actually check if the player hit the accept button
+	if( eAction != 'eUIAction_Accept' )
+		return;
+
+	DestroyCustomizationChanges();
+
+	SwapToCamoColorCustomizationScreen();
+}
+
+function OnWeaponAppearanceResetClicked()
+{
+	local TDialogueBoxData DialogData;
+
+	// Create UIDialogBox warning player that weapon customization will be reset to defaults including appearance.
+	DialogData.eType		= eDialog_Warning;
+	DialogData.strTitle		= default.strCustomizationAppearanceReset_DialogueTitle;
+	DialogData.strText		= default.strCustomizationAppearanceReset_DialogueText;
+	DialogData.strAccept	= class'UIUtilities_Text'.default.m_strGenericYes;
+	DialogData.strCancel	= class'UIUtilities_Text'.default.m_strGenericNO;
+	DialogData.fnCallback = ConfirmResetWeaponAppearanceCallback;
+	Movie.Pres.UIRaiseDialog(DialogData);
+}
+
+function ConfirmResetWeaponAppearanceCallback(Name eAction)
+{
+	local XComGameStateContext_ChangeContainer 	ChangeContainer;
+	local XComGameState 						ChangeState;
+	local XCGS_WeaponGunsmith					NewGunsmithState;
+	local XComGameState_Item 					Weapon;
+
+	//V1.005: Actually check if the player hit the accept button
+	if( eAction != 'eUIAction_Accept' )
+		return;
+
+	// Create change context
+	ChangeContainer = class'XComGameStateContext_ChangeContainer'.static.CreateEmptyChangeContainer("Reset Weapon Gunsmith Visual To Defaults");
+	ChangeState = `XCOMHISTORY.CreateNewGameState(true, ChangeContainer);
+
+	Weapon 			  		= XComGameState_Item(ChangeState.ModifyStateObject(class'XComGameState_Item', WeaponRef.ObjectID));
+	NewGunsmithState 		= XCGS_WeaponGunsmith(Weapon.FindComponentObject(class'XCGS_WeaponGunsmith'));
+
+	NewGunsmithState	= XCGS_WeaponGunsmith(ChangeState.ModifyStateObject(NewGunsmithState.Class, NewGunsmithState.ObjectID));
+	
+	// V1.005: Reset customization
+	NewGunsmithState.arrWeaponCustomizationParts.Length = 0;
+	NewGunsmithState.SetDefaultCustomizationState(Weapon.WeaponAppearance);
+	arrWeaponCustomizationParts = NewGunsmithState.arrWeaponCustomizationParts;
+
+	CurrentGunsmithState = NewGunsmithState;
+
+	`GAMERULES.SubmitGameState(ChangeState);
+
+	UpdateCustomizationUI(CurrentGunsmithState.GetPartTemplate(SelectedPart));
+
+	// Force a refresh
+	PreviewUpgrade(SlotsList, 0);
+
+	// Changing receivers may change the weapon name
+	UpdateOwnerSoldier();
 }
 
 //
@@ -953,7 +1676,7 @@ function CheckReceiverCriteria(out PartFilteringCriteria Criteria)
 	Criteria.Reason = "";
 	ReceiverTemplate = Criteria.Template;
 
-	`LOG("Checking Receiver Part Template " $ ReceiverTemplate.DataName $ " for validation",, 'WotC_Gameplay_Misc_WeaponGunsmith_UI');
+	//`LOG("Checking Receiver Part Template " $ ReceiverTemplate.DataName $ " for validation",, 'WotC_Gameplay_Misc_WeaponGunsmith_UI');
 
 	if ( (ReceiverTemplate.arrWeaponTemplateWhitelist.Length > 0 && (ReceiverTemplate.arrWeaponTemplateWhitelist.Find(Weapon.GetMyTemplateName()) == INDEX_NONE)) )
 	{
@@ -975,7 +1698,7 @@ function array<X2ConfigWeaponPartTemplate> GetSelectedWeaponParts()
 {
 	local array<PartFilteringCriteria>		arrPart;
 	local PartFilteringCriteria				IterPart;
-	local X2ConfigWeaponPartTemplate		ReceiverTemplate;
+	local X2ConfigWeaponPartTemplate		ReceiverTemplate, BarrelTemplate;
 	local array<X2ConfigWeaponPartTemplate>	OutArray;
 	local array<name> PartNames;
 	local int i;
@@ -1012,6 +1735,9 @@ function array<X2ConfigWeaponPartTemplate> GetSelectedWeaponParts()
 
 	// Determine the currently equipped Receiver and start filtering the arrays
 	ReceiverTemplate = CurrentGunsmithState.GetPartTemplate(PT_RECEIVER);
+
+	// V1.005: Also get the barrel
+	BarrelTemplate = CurrentGunsmithState.GetPartTemplate(PT_BARREL);
 
 	// If this happens something went wrong
 	if ( ReceiverTemplate == none)
@@ -1069,6 +1795,18 @@ function array<X2ConfigWeaponPartTemplate> GetSelectedWeaponParts()
 
 		if (PartNames.Find(IterPart.Template.DataName) == INDEX_NONE)
 			continue;
+
+		// V1.005: Some barrels has some unique properties, filter if the barrel does not want Weapons or Grips
+		if (SelectedPart == PT_UNDERBARREL) 
+		{
+			if (BarrelTemplate.bBarrel_PreventUBWeap && IterPart.Template.bUnderbarrel_IsWeap)
+				continue;
+
+			if (BarrelTemplate.bBarrel_PreventUBGrips && IterPart.Template.bUnderbarrel_IsGrip)
+				continue;
+		}
+
+		//`LOG("Adding Part " $ IterPart.Template.DataName $ " in Category " $ string(SelectedPart),, 'WotC_Gameplay_Misc_WeaponGunsmith_UI');
 
 		OutArray.AddItem(IterPart.Template);
 	}
@@ -1253,4 +1991,5 @@ defaultproperties
 	CameraTag = "UIBlueprint_Loadout";
 	DisplayTag = "UIBlueprint_Loadout";
 	bHideOnLoseFocus = false;
+	bScreenState_CamoColorCustomization = false;
 }

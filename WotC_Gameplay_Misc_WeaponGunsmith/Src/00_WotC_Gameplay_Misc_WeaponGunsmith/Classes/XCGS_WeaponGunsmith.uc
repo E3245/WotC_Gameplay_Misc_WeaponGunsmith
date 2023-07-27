@@ -33,6 +33,8 @@ var() protected X2ConfigWeaponPartTemplate DefaultMuzzleTemplate;
 
 var() array<name> arrDefaultWeaponPartNames;
 
+var() array<WeaponCustomizationData> arrWeaponCustomizationParts;	// Array of elements that defines what camo/color each part should have
+
 function OnInit(name newWeaponTemplate)
 {
 	WeaponTemplateName = newWeaponTemplate;
@@ -123,6 +125,21 @@ function SetPartTemplate(X2ConfigWeaponPartTemplate newTemplate, WeaponPartType 
 			BarrelTemplate = newTemplate;
 
 			if (bOverrideDefault) { DefaultBarrelTemplate = newTemplate; }
+
+			// V1.005: Check if we need to pop off some attachments
+			if (newTemplate.bBarrel_IgnoreValidParts)
+			{
+				MuzzleTemplate = DefaultMuzzleTemplate;
+				arrInstalledWeaponPartNames[PT_MUZZLE] = arrDefaultWeaponPartNames[PT_MUZZLE];
+			}
+
+			if ((newTemplate.bBarrel_PreventUBWeap && UnderbarrelTemplate.bUnderbarrel_IsWeap) ||
+				(newTemplate.bBarrel_PreventUBGrips && UnderbarrelTemplate.bUnderbarrel_IsGrip)
+				)
+			{
+				UnderbarrelTemplate = DefaultUnderbarrelTemplate;
+				arrInstalledWeaponPartNames[PT_UNDERBARREL] = arrDefaultWeaponPartNames[PT_UNDERBARREL];
+			}
 			break;
 		case PT_HANDGUARD:
 			HandguardTemplate = newTemplate;
@@ -312,10 +329,33 @@ function bool ShouldUseRifleGrip()
 	return (CurrentStockTemplate.bActivateRifleGrip || CurrentReargripTemplate.bActivateRifleGrip);
 }
 
+//
+// CUSTOMIZATION FUNCTIONS
+//
+function ApplyCustomization(WeaponPartType Type, WeaponCustomizationData NewCustomizationData)
+{
+	arrWeaponCustomizationParts[Type] = NewCustomizationData;
+}
+
+// V1.005: Set the default color on this gamestate
+function SetDefaultCustomizationState(TWeaponAppearance WepAppearance)
+{
+	local int						i;
+	
+	arrWeaponCustomizationParts.Add(PT_MAX);
+
+	for(i = 0; i < PT_MAX; ++i)
+	{
+		arrWeaponCustomizationParts[i].CamoTemplateName = WepAppearance.nmWeaponPattern;
+		arrWeaponCustomizationParts[i].iPrimaryTintPaletteIdx = WepAppearance.iWeaponTint;
+	}
+}
+
 function ResetWeaponStateToDefault()
 {
 	ReceiverTemplate		= DefaultReceiverTemplate;
 	BarrelTemplate			= DefaultBarrelTemplate;
+	HandguardTemplate		= DefaultHandguardTemplate;
 	StockTemplate			= DefaultStockTemplate;
 	MagazineTemplate		= DefaultMagazineTemplate;
 	ReargripTemplate		= DefaultReargripTemplate;

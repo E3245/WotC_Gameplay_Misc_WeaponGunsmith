@@ -1,9 +1,11 @@
 class UIPanel_WeaponCategoryControl extends UIPanel;
 
 var UIBGBox		BGFrame;
-var UIPanel		PartsListContainer;
-var UIList		PartsList;
+var UIPanel		OptionsListContainer;
+var UIList		OptionsList;
 var UIText		TitleText;
+
+var UIX2PanelHeader TitleHeader;
 
 var byte		SelectedIndex;
 
@@ -22,35 +24,41 @@ simulated function OnInit()
 {
 	super.OnInit();
 
-	BGFrame = Spawn(class'UIBGBox', self).InitBG('');
+	// V1.005: Updated Background
+	BGFrame = Spawn(class'UIBGBox', self);
+	BGFrame.LibID = class'UIUtilities_Controls'.const.MC_X2Background;
+	BGFrame.InitBG('theBG');
+	BGFrame.SetAlpha(80);
 	BGFrame.SetSize(320, 480);
 //	BGFrame.SetOutline(true);
 
-	PartsListContainer = Spawn(class'UIPanel', self);
-	PartsListContainer.bAnimateOnInit = false;
+	OptionsListContainer = Spawn(class'UIPanel', self);
+	OptionsListContainer.bAnimateOnInit = false;
 	
-	PartsList = Spawn(class'UIList', self);
-	PartsList.InitList('PartsListMC');
-	PartsList.SetSize(300, 400);
-	PartsList.SetPosition(5, 50);
-	PartsList.bStickyHighlight = false;
-	PartsList.bAutosizeItems = false;
-	PartsList.bAnimateOnInit = false;
-	PartsList.bSelectFirstAvailable = false;
-	PartsList.ItemPadding = 0;
-//	PartsList.OnSelectionChanged = PreviewUpgrade;
-	PartsList.OnItemClicked = OnItemClicked;
-	PartsList.Navigator.LoopSelection = false;	
+	OptionsList = Spawn(class'UIList', self);
+	OptionsList.InitList('OptionsListMC');
+	OptionsList.SetSize(300, 400);
+	OptionsList.SetPosition(5, 50);
+	OptionsList.bStickyHighlight = false;
+	OptionsList.bAutosizeItems = false;
+	OptionsList.bAnimateOnInit = false;
+	OptionsList.bSelectFirstAvailable = false;
+	OptionsList.ItemPadding = 0;
+//	OptionsList.OnSelectionChanged = PreviewUpgrade;
+	OptionsList.OnItemClicked = OnItemClicked;
+	OptionsList.Navigator.LoopSelection = false;	
 //	//INS: - JTA 2016/3/2
-//	PartsList.bLoopSelection = false;
-//	PartsList.Navigator.LoopOnReceiveFocus = true;
+//	OptionsList.bLoopSelection = false;
+//	OptionsList.Navigator.LoopOnReceiveFocus = true;
 //	//INS: WEAPON_UPGRADE_UI_FIXES, BET, 2016-03-23
-//	PartsList.bCascadeFocus = true;
-//	PartsList.bPermitNavigatorToDefocus = true;
+//	OptionsList.bCascadeFocus = true;
+//	OptionsList.bPermitNavigatorToDefocus = true;
 //
-
-	TitleText = Spawn(class'UIText', self).InitText('HeaderText', class'UIArmory_WeaponGunsmith'.default.m_PartSelectorTitle, true);
-	TitleText.SetPosition(5, 1);
+	// V1.005: Updated Text
+	TitleHeader = Spawn(class'UIX2PanelHeader', self);
+	TitleHeader.InitPanelHeader('', class'UIArmory_WeaponGunsmith'.default.m_PartSelectorTitle, "");
+	TitleHeader.SetPosition(5, 1);
+	TitleHeader.SetHeaderWidth(BGFrame.Width);
 
 	BuildMenuList();
 }
@@ -60,11 +68,11 @@ function BuildMenuList()
 	local byte				i;
 	local UIListItemString	Item;
 
-	PartsList.ClearItems();
+	OptionsList.ClearItems();
 
 	for(i = PT_RECEIVER; i < PT_MAX; ++i)
 	{
-		Item = UIListItemString(PartsList.CreateItem(class'UIListItemString')).InitListItem(class'UIArmory_WeaponGunsmith'.static.GetCategoryLabelString(WeaponPartType(i), UIArmory_WeaponGunsmith(Screen).SelectedReceiverTemplate));
+		Item = UIListItemString(OptionsList.CreateItem(class'UIListItemString')).InitListItem(class'UIArmory_WeaponGunsmith'.static.GetCategoryLabelString(WeaponPartType(i), UIArmory_WeaponGunsmith(Screen).SelectedReceiverTemplate));
 		Item.metadataInt = i;
 
 		if (ValidPartCategory[i] == false)
@@ -74,7 +82,7 @@ function BuildMenuList()
 		else if (ValidPartCategory[i] && UIArmory_WeaponGunsmith(Screen).SelectedPart == WeaponPartType(i) )
 		{
 			Item.ShouldShowGoodState(true);
-			PartsList.SetSelectedIndex(i - 1);
+			OptionsList.SetSelectedIndex(i - 1);
 			SelectedIndex = i - 1;	// Iteration starts at 1 instead of 0. For lists, it starts at 0
 		}
 	}
@@ -111,7 +119,7 @@ function DisableListItem(WeaponPartType PartName)
 
 	Val = PartName - 1;
 
-	UIListItemString(PartsList.GetItem(Val)).DisableListItem();
+	UIListItemString(OptionsList.GetItem(Val)).DisableListItem();
 }
 
 function UpdateValidCategory(array<bool> arrNewValidCategories)
@@ -119,19 +127,19 @@ function UpdateValidCategory(array<bool> arrNewValidCategories)
 	local byte i;
 	ValidPartCategory = arrNewValidCategories;
 
-	for( i = 0 ; i < PartsList.ItemCount; ++i)
+	for( i = 0 ; i < OptionsList.ItemCount; ++i)
 	{
 		//Update names
-		UIListItemString(PartsList.GetItem(i)).SetText(class'UIArmory_WeaponGunsmith'.static.GetCategoryLabelString(WeaponPartType(i + 1), UIArmory_WeaponGunsmith(Screen).SelectedReceiverTemplate));
+		UIListItemString(OptionsList.GetItem(i)).SetText(class'UIArmory_WeaponGunsmith'.static.GetCategoryLabelString(WeaponPartType(i + 1), UIArmory_WeaponGunsmith(Screen).SelectedReceiverTemplate));
 
 		if (ValidPartCategory[i + 1] == false)
 		{
-			UIListItemString(PartsList.GetItem(i)).OnLoseFocus();	// Sometimes the bar stays highlighted when switching to a disabled state.
-			UIListItemString(PartsList.GetItem(i)).DisableListItem();
+			UIListItemString(OptionsList.GetItem(i)).OnLoseFocus();	// Sometimes the bar stays highlighted when switching to a disabled state.
+			UIListItemString(OptionsList.GetItem(i)).DisableListItem();
 		}
 		else
 		{
-			UIListItemString(PartsList.GetItem(i)).EnableListItem();
+			UIListItemString(OptionsList.GetItem(i)).EnableListItem();
 		}
 	}
 }
