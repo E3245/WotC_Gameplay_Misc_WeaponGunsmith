@@ -58,6 +58,7 @@ If you are thinking of downvoting this mod, please provide feedback first, so I 
 [h1][b]TODO[/b][/h1]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 [list]
+	 [*]Scaling mesh option for GS weapons.
      [*]Fix some bugs, if any.
 [/list]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
@@ -103,8 +104,7 @@ A: Nope.
 [h1][b]LOG[/b][/h1]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 
-Release ver: 1.003:
+Release ver: 1.006:
 [list]
-	 [*]Fixed issue where Weapon Gunsmith Button did not appear.
-	 [*]Added ability for Receivers to change the localization of weapon categories when customizing.
+	 [*]Added projectile override path for Receivers.
 [/list]

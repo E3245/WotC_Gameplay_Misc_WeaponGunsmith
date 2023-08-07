@@ -1,3 +1,25 @@
+Release ver: 1.006:
+[list]
+	 [*]Added projectile override path for Receivers.
+[/list]
+
+Release ver: 1.005:
+[list]
+	 [*][b]BIG CUSTOMIZATION UPDATE !!![/b] 
+	 [list]
+		[*]Allows players to customize the apperance of gunsmith weapons, from Primary and Secondary Tinting options to Emissive Colors!
+		[*]Set custom tinting on specific weapon parts of gunsmith weapons.
+		[*]Set emissive colors on glowy objects such as Lasers
+		[*]Share your Gunsmith weapons with other players, with the Share and Import feature!
+	 [/list]
+	 [*]Added extra features to Weapon Part Templates.
+	 [*]Attempted to turn off Idle Conversations in Avenger while in Gunsmith mode.
+	 [*]Fixed some issues with the weapon visualizer not updating properly during Customization.
+	 [*]Fixed nicknames not taking effect.
+	 [*]Hid most log statements.
+	 [*]Misc fixes.
+[/list]
+
 Release ver: 1.004:
 [list]
 	 [*]Added global stats config file, for universally swapping stats on GS weapons.

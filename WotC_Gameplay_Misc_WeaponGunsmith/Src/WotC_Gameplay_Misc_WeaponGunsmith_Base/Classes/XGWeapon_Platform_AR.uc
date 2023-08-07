@@ -115,6 +115,7 @@ simulated function Actor CreateEntity(optional XComGameState_Item ItemState=none
 	local X2WeaponTemplate WeaponTemplate;
 	local TWeaponAppearance WeaponAppearance;
 	local string strArchetype;
+	local X2UnifiedProjectile Projectile;
 
 	if(Role != ROLE_Authority)
 	{
@@ -246,6 +247,15 @@ simulated function Actor CreateEntity(optional XComGameState_Item ItemState=none
 
 			if (ReceiverTemplate.AdditionalPawnAnimSets_Female.Length > 0)
 				AppendAnimations(kNewWeapon, true, ReceiverTemplate.AdditionalPawnAnimSets_Female);
+
+			// V1.006: Projectile Override
+			if (ReceiverTemplate.OverrideProjectileTemplate != "")
+			{
+				Projectile = X2UnifiedProjectile(`CONTENT.RequestGameArchetype(ReceiverTemplate.OverrideProjectileTemplate));
+
+				if (Projectile != none)
+					kNewWeapon.DefaultProjectileTemplate = Projectile;
+			}
 		}
 	}
 	

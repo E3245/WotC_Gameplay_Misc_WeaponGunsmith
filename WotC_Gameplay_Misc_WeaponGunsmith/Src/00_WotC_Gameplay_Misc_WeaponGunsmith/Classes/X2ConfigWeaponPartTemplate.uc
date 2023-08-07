@@ -41,6 +41,8 @@ var config name						Pawn_WeaponSuppressionFireAnimSequenceName; // Same as abov
 
 var config bool						bReplacePawnAnimSets;			// V1.005: Clear previously set animations
 
+var config string					OverrideProjectileTemplate;		// V1.006: If overridden, weapon will use this projectile archetype instead of the base one when visualized
+
 // TODO: Expand for different unit templates that's not just Soldiers/Reapers/Skirmishers/Templars
 var config array<string>			AdditionalPawnAnimSets_Male;
 var config array<string>			AdditionalPawnAnimSets_Female;
