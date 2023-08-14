@@ -1,3 +1,10 @@
+Release ver: 1.007:
+[list]
+	 [*]Fixed Suppressor noises not playing for weapons that are single shot
+	 [*]Fixed weapons that used multiple projectiles such as shotguns would play the same sound 10x
+	 [*]Minor improvements to X2UnifiedProjectile_Gunsmith.uc
+[/list]
+
 Release ver: 1.006:
 [list]
 	 [*]Added projectile override path for Receivers.

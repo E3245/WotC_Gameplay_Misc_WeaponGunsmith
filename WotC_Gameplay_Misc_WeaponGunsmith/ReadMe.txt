@@ -104,7 +104,9 @@ A: Nope.
 [h1][b]LOG[/b][/h1]
 [h1]-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.[/h1]
 
-Release ver: 1.006:
+Release ver: 1.007:
 [list]
-	 [*]Added projectile override path for Receivers.
+	 [*]Fixed Suppressor noises not playing for weapons that are single shot
+	 [*]Fixed weapons that used multiple projectiles such as shotguns would play the same sound 10x
+	 [*]Minor improvements to X2UnifiedProjectile_Gunsmith.uc
 [/list]
