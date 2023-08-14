@@ -42,16 +42,18 @@ function ConfigureNewProjectile(X2Action_Fire InFireAction,
 	if (GunsmithState == none)
 		return;
 
-	bSuppressorEquipped = WeaponVisualizer.IsAnyPartSuppressor();
-	
 	// Retrieve Receiver Template and pull the values from it
-	Template = GunsmithState.GetPartTemplate(PT_RECEIVER);
+	ReceiverTemplate = GunsmithState.GetPartTemplate(PT_RECEIVER);
 
-	if (Template.NumShots > 0)
-		VolleyNotify.NumShots		= Template.NumShots;
+	// If our notify is LE 1, then back out because we aren't overriding single shot weapon volleys
+	if (VolleyNotify.NumShots <= 1)
+		return; // Build without GS changes
+
+	if (ReceiverTemplate.NumShots > 0)
+		VolleyNotify.NumShots		= ReceiverTemplate.NumShots;
 	
-	if (Template.ShotInterval > 0.0)
-		VolleyNotify.ShotInterval	= Template.ShotInterval;
+	if (ReceiverTemplate.ShotInterval > 0.0)
+		VolleyNotify.ShotInterval	= ReceiverTemplate.ShotInterval;
 
 	//`log("Projectile Built", , 'WotC_Gameplay_Misc_WeaponGunsmith_Base');
 }
