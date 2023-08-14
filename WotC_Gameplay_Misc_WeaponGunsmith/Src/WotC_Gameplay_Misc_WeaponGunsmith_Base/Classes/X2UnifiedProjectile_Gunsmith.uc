@@ -5,6 +5,8 @@ var XGWeapon_Platform_AR	WeaponVisualizer;
 
 var bool					bSuppressorEquipped;
 
+var X2ConfigWeaponPartTemplate	ReceiverTemplate;
+
 // Name of the animation that plays if a weapon has a suppressor
 const AnimFireSilencedName	= 'FF_FireSupA';
 
@@ -15,21 +17,21 @@ function ConfigureNewProjectile(X2Action_Fire InFireAction,
 {
 	local XComGameState_Item			ItemState;
 	local XCGS_WeaponGunsmith			GunsmithState;
-	local X2ConfigWeaponPartTemplate	Template;
+
 
 	//`log("Building Custom Projectile", , 'WotC_Gameplay_Misc_WeaponGunsmith_Base');
 
 	super.ConfigureNewProjectile(InFireAction, InVolleyNotify, AbilityContext, InSourceWeapon);
 
-	if (XComWeapon_Gunsmith(InSourceWeapon) != none)
-	{
-		WeaponGSArc = XComWeapon_Gunsmith(InSourceWeapon);
-		WeaponVisualizer = XGWeapon_Platform_AR(WeaponGSArc.m_kGameWeapon);
-	}
+	// V1.007: Check nil value instead
+	if (XComWeapon_Gunsmith(InSourceWeapon) == none)
+		return; // Build without GS changes
+	
+	WeaponGSArc = XComWeapon_Gunsmith(InSourceWeapon);
+	WeaponVisualizer = XGWeapon_Platform_AR(WeaponGSArc.m_kGameWeapon);
 
-	// If our notify is LE 1, then back out
-	if (VolleyNotify.NumShots <= 1)
-		return;
+	// V1.007: Moved bSuppressorEquipped check to before back out to account for suppressed single shot weapons
+	bSuppressorEquipped = WeaponVisualizer.IsAnyPartSuppressor();
 
 	// Adjust the volley and number of shots based on the receiver template's settings
 	ItemState = XComGameState_Item(`XCOMHISTORY.GetGameStateForObjectID(SourceWeapon.m_kGameWeapon.ObjectID));
@@ -103,7 +105,7 @@ function FireProjectileInstance(int Index)
 	//local ParticleSystem AxisSystem;
 	//local ParticleSystemComponent PSComponent;
 
-	//`log("" $ GetFuncName() $ "()", , 'WotC_Gameplay_Misc_WeaponGunsmith_Base');
+	//`log("" $ GetFuncName() $ "(" $ Index $ ")", , 'WotC_Gameplay_Misc_WeaponGunsmith_Base');
 	 
 
 	ShooterState = XComGameState_Unit( `XCOMHISTORY.GetGameStateForObjectID( SourceAbility.InputContext.SourceObject.ObjectID ) );
