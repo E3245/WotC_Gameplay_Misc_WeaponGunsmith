@@ -572,6 +572,10 @@ function FireProjectileInstance(int Index)
 		}
 	}
 
+	if (ReceiverTemplate != none && ReceiverTemplate.bFiringSound_PlayOncePerVolley && Index > 0)
+		return;
+	
+	//`log("Receiver Template: " $ ReceiverTemplate.DataName $ ", POPV Value: " $ ReceiverTemplate.bFiringSound_PlayOncePerVolley, , 'WotC_Gameplay_Misc_WeaponGunsmith_Base');
 	//`log("Playing Sound " $ (Projectiles[Index].ProjectileElement.FireSound != none), , 'WotC_Gameplay_Misc_WeaponGunsmith_Base');
 
 	if( Projectiles[Index].ProjectileElement.FireSound != none )

@@ -33,6 +33,7 @@ var config array<int>				UnlockedCategories;				// Array of PT_MAX elements that
 
 var config float					ShotInterval;
 var config int						NumShots;
+var config bool						bFiringSound_PlayOncePerVolley; // V1.007: Play once per volley
 var config string					DefaultFiringSoundCue;			// Default firing sound effect.
 var config string					SuppressedFiringSoundCue;		// If a muzzle with bIsSuppressor is installed, change the sound to this instead
 var config name						Pawn_WeaponFireAnimSequenceName;	// Name of the AnimSequence to play instead of the default one in the archetype. Only overriden on Tactical start.
