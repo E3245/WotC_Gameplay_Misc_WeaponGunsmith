@@ -75,6 +75,11 @@ function SetUpAnimTreeNodes(SkeletalMeshComponent SkelComp)
 	local XComAnimNodeBlendDynamic newDynamicNode, newAdditiveDynamicNode;
 	local AnimNodeAdditiveBlending newAdditiveNode;
 
+	if (SkelComp.Animations == none)
+	{
+		`LOG("ERROR, AnimSet not loaded for skeletal mesh " $ SkelComp.PathName,, 'WotC_Gameplay_Misc_WeaponGunsmith_Base');
+	}
+
 	newDynamicNode = XComAnimNodeBlendDynamic(SkelComp.Animations.FindAnimNode('BlendDynamic'));
 	newAdditiveDynamicNode = XComAnimNodeBlendDynamic(SkelComp.Animations.FindAnimNode('AdditiveBlendDynamic'));
 	newAdditiveNode = AnimNodeAdditiveBlending(SkelComp.Animations.FindAnimNode('AdditiveBlend'));
