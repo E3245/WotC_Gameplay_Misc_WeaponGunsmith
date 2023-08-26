@@ -597,6 +597,7 @@ function AttachUpgradeToSkeletalComponent(XComWeapon kNewWeapon, SkeletalMeshCom
 			SkelMeshComp = new(kNewWeapon) class'SkeletalMeshComponent';
 			SkelMeshComp.SetSkeletalMesh(SkeletalMesh(WPNAttachment.LoadedObject));
 			SkelMeshComp.bCastStaticShadow = false;
+			SkelMeshComp.bAcceptsDynamicDecals  = true; // V1.009: Sticker/Decal support
 			
 			// Update materials before attaching component
 			UpdateMaterialsAndGatherList(SkelMeshComp, Part);
