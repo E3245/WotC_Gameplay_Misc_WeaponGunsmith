@@ -140,6 +140,33 @@ function SetPartTemplate(X2ConfigWeaponPartTemplate newTemplate, WeaponPartType 
 				UnderbarrelTemplate = DefaultUnderbarrelTemplate;
 				arrInstalledWeaponPartNames[PT_UNDERBARREL] = arrDefaultWeaponPartNames[PT_UNDERBARREL];
 			}
+			// V1.008: Handguard check
+			// If the barrel requires a different handguard
+			if (newTemplate.bBarrel_PreventHandguard)
+			{
+				HandguardTemplate = DefaultHandguardTemplate;
+
+				if (newTemplate.nBarrel_ResetHandguardtoTemplate != '')
+				{
+					HandguardTemplate = X2ConfigWeaponPartTemplate(class'X2ItemTemplateManager'.static.GetItemTemplateManager().FindItemTemplate(newTemplate.nBarrel_ResetHandguardtoTemplate));
+
+					if (HandguardTemplate == none)
+						HandguardTemplate = DefaultHandguardTemplate;
+				}
+
+				arrInstalledWeaponPartNames[PT_HANDGUARD] = HandguardTemplate.DataName;
+			}
+			// If this field is filled in anyways while an empty handguard is equipped, reset the handguard to this template
+			else if ( arrInstalledWeaponPartNames[PT_HANDGUARD] == 'PT_SPECIAL_HANDGUARD_NONE' && newTemplate.nBarrel_ResetHandguardtoTemplate != '' )
+			{
+				HandguardTemplate = X2ConfigWeaponPartTemplate(class'X2ItemTemplateManager'.static.GetItemTemplateManager().FindItemTemplate(newTemplate.nBarrel_ResetHandguardtoTemplate));
+
+				if (HandguardTemplate == none)
+					HandguardTemplate = DefaultHandguardTemplate;
+
+				arrInstalledWeaponPartNames[PT_HANDGUARD] = HandguardTemplate.DataName;
+			}
+
 			break;
 		case PT_HANDGUARD:
 			HandguardTemplate = newTemplate;

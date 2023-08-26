@@ -736,6 +736,15 @@ simulated function OnItemClicked(UIList ContainerList, int ItemIndex)
 				ValidPartCategoryFlag[PT_MUZZLE] = false;
 			}
 		}
+
+		// V1.008: Check if Handguard is blocked by barrel
+		if (SelectedPart == PT_BARREL)
+		{
+			ValidPartCategoryFlag[PT_HANDGUARD] = true;
+
+			if (PartTemplate.bBarrel_PreventHandguard)
+				ValidPartCategoryFlag[PT_HANDGUARD] = false;
+		}
 	}
 
 	WeaponCategoryControl.UpdateValidCategory(ValidPartCategoryFlag);
@@ -1738,6 +1747,7 @@ function array<X2ConfigWeaponPartTemplate> GetSelectedWeaponParts()
 
 	// V1.005: Also get the barrel
 	BarrelTemplate = CurrentGunsmithState.GetPartTemplate(PT_BARREL);
+	HandguardTemplate = CurrentGunsmithState.GetPartTemplate(PT_HANDGUARD);
 
 	// If this happens something went wrong
 	if ( ReceiverTemplate == none)
@@ -1793,8 +1803,27 @@ function array<X2ConfigWeaponPartTemplate> GetSelectedWeaponParts()
 		if (IterPart.bAlwaysHide)
 			continue;
 
+		// Part doesn't exist in the array
 		if (PartNames.Find(IterPart.Template.DataName) == INDEX_NONE)
 			continue;
+
+		// V1.008: Filter Barrels
+		if (SelectedPart == PT_BARREL)
+		{
+			// V1.008: Hide barrels with bBarrel_PreventHandguard when a custom Handguard is equipped 
+			if (HandguardTemplate.DataName != 'PT_SPECIAL_HANDGUARD_NONE')
+			{
+				if (BarrelTemplate.bBarrel_PreventHandguard)
+					continue;
+			}
+		}
+
+		// V1.008: Hide Handguards if the barrel requires it
+		if (SelectedPart == PT_HANDGUARD)
+		{
+			if (BarrelTemplate.bBarrel_PreventHandguard)
+				continue;
+		}
 
 		// V1.005: Some barrels has some unique properties, filter if the barrel does not want Weapons or Grips
 		if (SelectedPart == PT_UNDERBARREL) 

@@ -1368,6 +1368,14 @@ function bool FilterAttachmentFn(WeaponPartAttachment WPNAttachment)
 			break;
 		case 'NoModularStockEquipped':
 			Result = !IsModularStockEquipped();
+			break;
+		// V1.008: Handguard Logic
+		case 'HandguardEquipped':
+			Result = IsHandguardEquipped();
+			break;
+		case 'NoHandguardEquipped':
+			Result = !IsHandguardEquipped();
+			break;
 	}
 
 	return Result;
@@ -1416,6 +1424,11 @@ function bool IsBipodEquipped()
 function bool IsModularStockEquipped()
 {
 	return (StockTemplate.bStock_Modular);
+}
+
+function bool IsHandguardEquipped()
+{
+	return (HandguardTemplate.DataName == 'PT_SPECIAL_HANDGUARD_NONE');
 }
 
 /*

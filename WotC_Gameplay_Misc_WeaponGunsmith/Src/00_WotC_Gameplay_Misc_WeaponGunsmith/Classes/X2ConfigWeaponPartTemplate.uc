@@ -57,6 +57,11 @@ var config bool						bBarrel_IsShort;				// Swaps to Mini GL if barrel is a shor
 var config bool						bBarrel_PreventUBWeap;			// V1.005: Prevents UB weapons from being equipped (for Short short barrels)
 var config bool						bBarrel_PreventUBGrips;			// V1.005: Same as above, but for grips.
 var config bool						bBarrel_DisableLaserCap;		// V1.005: This barrel will disable the laser cap when a laser is equipped
+var config bool						bBarrel_PreventHandguard;			// V1.008: Barrel can prevent Handguards from being equipped and can reset that part.
+var config name						nBarrel_ResetHandguardtoTemplate;	// V1.008: If specified, resets handguard template to this template.
+
+// Handguard only variable
+var config name						nHandguard_ResetBarreltoTemplate;	// V1.008: If specified, resets barrels to this template when this handguard is equipped
 
 // Barrel/Muzzle variables
 var config bool						bIsSuppressor;					// Changes sound to suppressed version and swaps muzzle flash
