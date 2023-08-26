@@ -1707,7 +1707,7 @@ function array<X2ConfigWeaponPartTemplate> GetSelectedWeaponParts()
 {
 	local array<PartFilteringCriteria>		arrPart;
 	local PartFilteringCriteria				IterPart;
-	local X2ConfigWeaponPartTemplate		ReceiverTemplate, BarrelTemplate;
+	local X2ConfigWeaponPartTemplate		ReceiverTemplate, BarrelTemplate, HandguardTemplate;
 	local array<X2ConfigWeaponPartTemplate>	OutArray;
 	local array<name> PartNames;
 	local int i;
@@ -1834,6 +1834,13 @@ function array<X2ConfigWeaponPartTemplate> GetSelectedWeaponParts()
 			if (BarrelTemplate.bBarrel_PreventUBGrips && IterPart.Template.bUnderbarrel_IsGrip)
 				continue;
 		}
+
+		// V1.008: Hide all muzzles if bBarrel_IgnoreValidParts is enabled for the barrel
+		if (SelectedPart == PT_MUZZLE)
+		{
+			if (BarrelTemplate.bBarrel_IgnoreValidParts)
+				continue;
+		} 
 
 		//`LOG("Adding Part " $ IterPart.Template.DataName $ " in Category " $ string(SelectedPart),, 'WotC_Gameplay_Misc_WeaponGunsmith_UI');
 
